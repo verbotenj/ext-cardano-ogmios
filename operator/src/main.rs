@@ -4,8 +4,9 @@ use actix_web::{
 use dotenv::dotenv;
 use prometheus::{Encoder, TextEncoder};
 use std::{io, sync::Arc};
+use tracing::{info, Level};
 
-use ext_cardano_ogmios::{controller, metrics as metrics_collector, State};
+use ext_cardano_ogmios::{controller, State};
 
 #[get("/metrics")]
 async fn metrics(c: Data<Arc<State>>, _req: HttpRequest) -> impl Responder {
@@ -25,10 +26,11 @@ async fn health(_: HttpRequest) -> impl Responder {
 async fn main() -> io::Result<()> {
     dotenv().ok();
 
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+
     let state = Arc::new(State::default());
 
     let controller = tokio::spawn(controller::run(state.clone()));
-    let metrics_collector = tokio::spawn(metrics_collector::run_metrics_collector(state.clone()));
 
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0:8080".into());
 
@@ -39,9 +41,15 @@ async fn main() -> io::Result<()> {
             .service(health)
             .service(metrics)
     })
-    .bind(addr)?;
+    .bind(&addr)?;
+    info!({ addr }, "metrics server running");
 
-    tokio::join!(controller, metrics_collector, server.run()).2?;
+    let signal = tokio::spawn(async {
+        tokio::signal::ctrl_c().await.expect("Fail to exit");
+        std::process::exit(0);
+    });
+
+    tokio::join!(server.run(), controller, signal).0?;
 
     Ok(())
 }

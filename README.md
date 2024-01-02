@@ -1,32 +1,9 @@
 # Ext Cardano Ogmios
 
-This project allow demeter to run and expose ogmios
+The approach of this project is to allow a CRD to Ogmios on the K8S cluster and an operator will enable the required resources to expose an Ogmios port.
 
-## Environment
+## Folder structure
 
-| Key  | Value        |
-| ---- | ------------ |
-| ADDR | 0.0.0.0:5000 |
-
-
-## Commands
-
-To generate the CRD will need to execute crdgen
-
-```bash
-cargo run --bin=crdgen
-```
-
-and execute the controller
-
-```bash
-cargo run
-```
-
-## Metrics
-
-to collect metrics for Prometheus, an http api will enable with the route /metrics.
-
-```
-/metrics
-```
+* bootstrap: contains terraform resources
+* operator: rust application integrated with the cluster
+* scripts: useful scripts

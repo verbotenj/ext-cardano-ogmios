@@ -1,18 +1,19 @@
 use futures::StreamExt;
 use kube::{
-    runtime::{
-        controller::Action,
-        finalizer::{finalizer, Event},
-        watcher::Config as WatcherConfig,
-        Controller,
-    },
+    runtime::{controller::Action, watcher::Config as WatcherConfig, Controller},
     Api, Client, CustomResource, ResourceExt,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Duration};
+use tracing::{error, info, instrument};
 
-use crate::{Error, Metrics, Result, State};
+use crate::{
+    auth::handle_auth,
+    build_private_dns_service_name,
+    gateway::{handle_http_route, handle_reference_grant},
+    Error, Metrics, Network, Result, State,
+};
 
 pub static OGMIOS_PORT_FINALIZER: &str = "ogmiosports.demeter.run";
 
@@ -24,20 +25,25 @@ pub static OGMIOS_PORT_FINALIZER: &str = "ogmiosports.demeter.run";
     namespaced
 )]
 #[kube(status = "OgmiosPortStatus")]
-
-pub struct OgmiosPortSpec {}
+#[kube(printcolumn = r#"
+        {"name": "Network", "jsonPath": ".spec.network", "type": "string"},
+        {"name": "Version", "jsonPath": ".spec.version", "type": "number"},
+        {"name": "Endpoint URL", "jsonPath": ".status.endpointUrl",  "type": "string"},
+        {"name": "Auth Token", "jsonPath": ".status.authToken", "type": "string"}
+    "#)]
+#[serde(rename_all = "camelCase")]
+pub struct OgmiosPortSpec {
+    pub network: Network,
+    pub version: u8,
+}
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema)]
-pub struct OgmiosPortStatus {}
-
-impl OgmiosPort {
-    async fn reconcile(&self, _ctx: Arc<Context>) -> Result<Action> {
-        Ok(Action::requeue(Duration::from_secs(5 * 60)))
-    }
-
-    async fn cleanup(&self, _: Arc<Context>) -> Result<Action> {
-        Ok(Action::await_change())
-    }
+#[serde(rename_all = "camelCase")]
+pub struct OgmiosPortStatus {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
 }
 
 struct Context {
@@ -51,25 +57,28 @@ impl Context {
 }
 
 async fn reconcile(crd: Arc<OgmiosPort>, ctx: Arc<Context>) -> Result<Action> {
-    let ns = crd.namespace().unwrap();
-    let crds: Api<OgmiosPort> = Api::namespaced(ctx.client.clone(), &ns);
+    let client = ctx.client.clone();
+    let namespace = crd.namespace().unwrap();
 
-    finalizer(&crds, OGMIOS_PORT_FINALIZER, crd, |event| async {
-        match event {
-            Event::Apply(crd) => crd.reconcile(ctx.clone()).await,
-            Event::Cleanup(crd) => crd.cleanup(ctx.clone()).await,
-        }
-    })
-    .await
-    .map_err(|e| Error::FinalizerError(Box::new(e)))
+    let private_dns_service_name =
+        build_private_dns_service_name(&crd.spec.network, &crd.spec.version);
+    handle_reference_grant(client.clone(), &namespace, &crd, &private_dns_service_name).await?;
+    handle_http_route(client.clone(), &namespace, &crd, &private_dns_service_name).await?;
+    handle_auth(client.clone(), &namespace, &crd).await?;
+
+    Ok(Action::await_change())
 }
 
 fn error_policy(crd: Arc<OgmiosPort>, err: &Error, ctx: Arc<Context>) -> Action {
+    error!(error = err.to_string(), "reconcile failed");
     ctx.metrics.reconcile_failure(&crd, err);
     Action::requeue(Duration::from_secs(5))
 }
 
+#[instrument("controller run", skip_all)]
 pub async fn run(state: Arc<State>) -> Result<(), Error> {
+    info!("listening crds running");
+
     let client = Client::try_default().await?;
     let crds = Api::<OgmiosPort>::all(client.clone());
     let ctx = Context::new(client, state.metrics.clone());

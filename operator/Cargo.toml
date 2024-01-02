@@ -2,15 +2,20 @@
 name = "ext-cardano-ogmios"
 version = "0.1.0"
 edition = "2021"
+default-run = "controller"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 actix-web = "4.4.0"
+argon2 = "0.5.2"
+base64 = "0.21.5"
+bech32 = "0.9.1"
 dotenv = "0.15.0"
 futures = "0.3.29"
 k8s-openapi = { version = "0.20.0", features = ["latest"] }
 kube = { version = "0.87.1", features = ["runtime", "client", "derive"] }
+lazy_static = "1.4.0"
 prometheus = "0.13.3"
 schemars = "0.8.16"
 serde = { version = "1.0.193", features = ["derive"] }

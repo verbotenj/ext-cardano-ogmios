@@ -1,9 +1,7 @@
-use std::{sync::Arc, thread::sleep, time::Duration};
-
 use kube::ResourceExt;
 use prometheus::{opts, IntCounterVec, Registry};
 
-use crate::{Error, OgmiosPort, State};
+use crate::{Error, OgmiosPort};
 
 #[derive(Clone)]
 pub struct Metrics {
@@ -36,11 +34,5 @@ impl Metrics {
         self.reconcile_failures
             .with_label_values(&[crd.name_any().as_ref(), e.metric_label().as_ref()])
             .inc()
-    }
-}
-
-pub async fn run_metrics_collector(_state: Arc<State>) -> Result<(), Error> {
-    loop {
-        sleep(Duration::from_secs(6))
     }
 }
