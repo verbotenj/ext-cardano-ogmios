@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use kube::{
     runtime::{controller::Action, watcher::Config as WatcherConfig, Controller},
-    Api, Client, CustomResource, ResourceExt,
+    Api, Client, CustomResource,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,6 @@ use tracing::{error, info, instrument};
 
 use crate::{
     auth::handle_auth,
-    build_private_dns_service_name,
     gateway::{handle_http_route, handle_reference_grant},
     Error, Metrics, Network, Result, State,
 };
@@ -57,14 +56,9 @@ impl Context {
 }
 
 async fn reconcile(crd: Arc<OgmiosPort>, ctx: Arc<Context>) -> Result<Action> {
-    let client = ctx.client.clone();
-    let namespace = crd.namespace().unwrap();
-
-    let private_dns_service_name =
-        build_private_dns_service_name(&crd.spec.network, &crd.spec.version);
-    handle_reference_grant(client.clone(), &namespace, &crd, &private_dns_service_name).await?;
-    handle_http_route(client.clone(), &namespace, &crd, &private_dns_service_name).await?;
-    handle_auth(client.clone(), &namespace, &crd).await?;
+    handle_reference_grant(ctx.client.clone(), &crd).await?;
+    handle_http_route(ctx.client.clone(), &crd).await?;
+    handle_auth(ctx.client.clone(), &crd).await?;
 
     Ok(Action::await_change())
 }

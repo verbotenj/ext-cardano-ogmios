@@ -5,30 +5,29 @@ use tracing::info;
 
 use crate::{
     create_resource, get_acl_name, get_auth_name, get_config, get_resource, http_route,
-    patch_resource, patch_resource_status, reference_grant, Error, OgmiosPort, OgmiosPortStatus,
+    ogmios_service_name, patch_resource, patch_resource_status, reference_grant, Error, OgmiosPort,
+    OgmiosPortStatus,
 };
 
-pub async fn handle_http_route(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-    private_dns_service_name: &str,
-) -> Result<(), Error> {
-    let name = format!("ogmios-{}", resource.name_any());
-    let host_name = build_host(&resource.name_any(), &namespace_to_slug(namespace));
+pub async fn handle_http_route(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    let namespace = crd.namespace().unwrap();
+    let ogmios_service = ogmios_service_name(&crd.spec.network, &crd.spec.version);
+
+    let name = format!("ogmios-{}", crd.name_any());
+    let host_name = build_host(&crd.name_any(), &namespace_to_slug(&namespace));
     let http_route = http_route();
     let ogmios_port = OgmiosPort::api_resource();
 
-    let result = get_resource(client.clone(), namespace, &http_route, &name).await?;
+    let result = get_resource(client.clone(), &namespace, &http_route, &name).await?;
 
-    let (metadata, data, raw) = route(&name, &host_name, resource, private_dns_service_name)?;
+    let (metadata, data, raw) = build_route(&name, &host_name, crd, &ogmios_service)?;
 
     if result.is_some() {
-        info!(resource = resource.name_any(), "Updating http route");
-        patch_resource(client.clone(), namespace, http_route, &name, raw).await?;
+        info!(resource = crd.name_any(), "Updating http route");
+        patch_resource(client.clone(), &namespace, http_route, &name, raw).await?;
     } else {
-        info!(resource = resource.name_any(), "Creating http route");
-        create_resource(client.clone(), namespace, http_route, metadata, data).await?;
+        info!(resource = crd.name_any(), "Creating http route");
+        create_resource(client.clone(), &namespace, http_route, metadata, data).await?;
     }
 
     let status = OgmiosPortStatus {
@@ -37,31 +36,29 @@ pub async fn handle_http_route(
     };
     patch_resource_status(
         client.clone(),
-        namespace,
+        &namespace,
         ogmios_port,
-        &resource.name_any(),
+        &crd.name_any(),
         serde_json::to_value(status)?,
     )
     .await?;
     Ok(())
 }
 
-pub async fn handle_reference_grant(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-    private_dns_service_name: &str,
-) -> Result<(), Error> {
-    let name = format!("{}-{}-http", namespace, resource.name_any());
+pub async fn handle_reference_grant(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    let namespace = crd.namespace().unwrap();
+    let ogmios_service = ogmios_service_name(&crd.spec.network, &crd.spec.version);
+
+    let name = format!("{}-{}-http", namespace, crd.name_any());
     let reference_grant = reference_grant();
     let config = get_config();
 
     let result = get_resource(client.clone(), &config.namespace, &reference_grant, &name).await?;
 
-    let (metadata, data, raw) = grant(&name, private_dns_service_name, namespace)?;
+    let (metadata, data, raw) = build_grant(&name, &ogmios_service, &namespace)?;
 
     if result.is_some() {
-        info!(resource = resource.name_any(), "Updating reference grant");
+        info!(resource = crd.name_any(), "Updating reference grant");
         patch_resource(
             client.clone(),
             &config.namespace,
@@ -71,7 +68,7 @@ pub async fn handle_reference_grant(
         )
         .await?;
     } else {
-        info!(resource = resource.name_any(), "Creating reference grant");
+        info!(resource = crd.name_any(), "Creating reference grant");
         // we need to get the deserialized payload
         create_resource(
             client.clone(),
@@ -85,24 +82,11 @@ pub async fn handle_reference_grant(
     Ok(())
 }
 
-fn build_host(name: &str, project_slug: &str) -> String {
-    let config = get_config();
-
-    format!(
-        "{}-{}.{}.{}",
-        name, project_slug, config.ingress_class, config.dns_zone
-    )
-}
-
-fn namespace_to_slug(namespace: &str) -> String {
-    namespace.split_once('-').unwrap().1.to_string()
-}
-
-fn route(
+fn build_route(
     name: &str,
     hostname: &str,
     owner: &OgmiosPort,
-    private_dns_service_name: &str,
+    ogmios_service: &str,
 ) -> Result<(ObjectMeta, JsonValue, JsonValue), Error> {
     let config = get_config();
     let http_route = http_route();
@@ -146,7 +130,7 @@ fn route(
             "backendRefs": [
               {
                 "kind": "Service",
-                "name": private_dns_service_name,
+                "name": ogmios_service,
                 "port": config.http_port.parse::<i32>()?,
                 "namespace": config.namespace
               }
@@ -166,9 +150,9 @@ fn route(
     Ok((metadata, data, raw))
 }
 
-fn grant(
+fn build_grant(
     name: &str,
-    private_dns_service_name: &str,
+    ogmios_service: &str,
     project_namespace: &str,
 ) -> Result<(ObjectMeta, JsonValue, JsonValue), Error> {
     let reference_grant = reference_grant();
@@ -191,7 +175,7 @@ fn grant(
             {
                 "group": "",
                 "kind": "Service",
-                "name": private_dns_service_name,
+                "name": ogmios_service,
             },
         ],
       }
@@ -205,4 +189,17 @@ fn grant(
     });
 
     Ok((metadata, data, raw))
+}
+
+fn build_host(name: &str, project_slug: &str) -> String {
+    let config = get_config();
+
+    format!(
+        "{}-{}.{}.{}",
+        name, project_slug, config.ingress_class, config.dns_zone
+    )
+}
+
+fn namespace_to_slug(namespace: &str) -> String {
+    namespace.split_once('-').unwrap().1.to_string()
 }

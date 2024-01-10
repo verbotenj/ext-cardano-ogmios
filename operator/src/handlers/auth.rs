@@ -20,40 +20,36 @@ use crate::{
     kong_plugin, patch_resource, patch_resource_status, Error, OgmiosPort, OgmiosPortStatus,
 };
 
-pub async fn handle_auth(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-) -> Result<(), Error> {
-    handle_auth_secret(client.clone(), namespace, resource).await?;
-    handle_auth_plugin(client.clone(), namespace, resource).await?;
-    handle_acl_secret(client.clone(), namespace, resource).await?;
-    handle_acl_plugin(client.clone(), namespace, resource).await?;
-    handle_consumer(client.clone(), namespace, resource).await?;
+pub async fn handle_auth(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    handle_auth_secret(client.clone(), crd).await?;
+    handle_auth_plugin(client.clone(), crd).await?;
+
+    handle_acl_secret(client.clone(), crd).await?;
+    handle_acl_plugin(client.clone(), crd).await?;
+
+    handle_consumer(client.clone(), crd).await?;
     Ok(())
 }
 
-async fn handle_auth_secret(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-) -> Result<(), Error> {
-    let name = get_auth_name(&resource.name_any());
-    let api_key = generate_api_key(&name, namespace).await?;
+async fn handle_auth_secret(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    let namespace = crd.namespace().unwrap();
+
+    let name = get_auth_name(&crd.name_any());
+    let api_key = generate_api_key(&name, &namespace).await?;
     let ogmios_port = OgmiosPort::api_resource();
 
-    let api = Api::<Secret>::namespaced(client.clone(), namespace);
+    let api = Api::<Secret>::namespaced(client.clone(), &namespace);
 
-    let secret = auth_secret(&name, &api_key, resource.clone());
+    let secret = auth_secret(&name, &api_key, crd.clone());
     let result = api.get_opt(&name).await?;
 
     if result.is_some() {
-        info!(resource = resource.name_any(), "Updating auth secret");
+        info!(resource = crd.name_any(), "Updating auth secret");
         let patch_params = PatchParams::default();
         api.patch(&name, &patch_params, &Patch::Merge(secret))
             .await?;
     } else {
-        info!(resource = resource.name_any(), "Creating auth secret");
+        info!(resource = crd.name_any(), "Creating auth secret");
         let post_params = PostParams::default();
         api.create(&post_params, &secret).await?;
     }
@@ -65,55 +61,51 @@ async fn handle_auth_secret(
 
     patch_resource_status(
         client.clone(),
-        namespace,
+        &namespace,
         ogmios_port,
-        &resource.name_any(),
+        &crd.name_any(),
         serde_json::to_value(status)?,
     )
     .await?;
     Ok(())
 }
 
-async fn handle_auth_plugin(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-) -> Result<(), Error> {
-    let name = get_auth_name(&resource.name_any());
+async fn handle_auth_plugin(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    let namespace = crd.namespace().unwrap();
+
+    let name = get_auth_name(&crd.name_any());
     let kong_plugin = kong_plugin();
 
-    let result = get_resource(client.clone(), namespace, &kong_plugin, &name).await?;
-    let (metadata, data, raw) = auth_plugin(resource.clone())?;
+    let result = get_resource(client.clone(), &namespace, &kong_plugin, &name).await?;
+    let (metadata, data, raw) = auth_plugin(crd.clone())?;
 
     if result.is_some() {
-        info!(resource = resource.name_any(), "Updating auth plugin");
-        patch_resource(client.clone(), namespace, kong_plugin, &name, raw).await?;
+        info!(resource = crd.name_any(), "Updating auth plugin");
+        patch_resource(client.clone(), &namespace, kong_plugin, &name, raw).await?;
     } else {
-        info!(resource = resource.name_any(), "Creating auth plugin");
-        create_resource(client.clone(), namespace, kong_plugin, metadata, data).await?;
+        info!(resource = crd.name_any(), "Creating auth plugin");
+        create_resource(client.clone(), &namespace, kong_plugin, metadata, data).await?;
     }
     Ok(())
 }
 
-async fn handle_acl_secret(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-) -> Result<(), Error> {
-    let name = get_acl_name(&resource.name_any());
+async fn handle_acl_secret(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    let namespace = crd.namespace().unwrap();
 
-    let api = Api::<Secret>::namespaced(client.clone(), namespace);
+    let name = get_acl_name(&crd.name_any());
 
-    let secret = acl_secret(&name, resource.clone());
+    let api = Api::<Secret>::namespaced(client.clone(), &namespace);
+
+    let secret = acl_secret(&name, crd.clone());
     let result = api.get_opt(&name).await?;
 
     if result.is_some() {
-        info!(resource = resource.name_any(), "Updating acl secret");
+        info!(resource = crd.name_any(), "Updating acl secret");
         let patch_params = PatchParams::default();
         api.patch(&name, &patch_params, &Patch::Merge(secret))
             .await?;
     } else {
-        info!(resource = resource.name_any(), "Creating acl secret");
+        info!(resource = crd.name_any(), "Creating acl secret");
         let post_params = PostParams::default();
         api.create(&post_params, &secret).await?;
     }
@@ -121,44 +113,40 @@ async fn handle_acl_secret(
     Ok(())
 }
 
-async fn handle_acl_plugin(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-) -> Result<(), Error> {
-    let name = get_acl_name(&resource.name_any());
+async fn handle_acl_plugin(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    let namespace = crd.namespace().unwrap();
+
+    let name = get_acl_name(&crd.name_any());
     let kong_plugin = kong_plugin();
 
-    let result = get_resource(client.clone(), namespace, &kong_plugin, &name).await?;
-    let (metadata, data, raw) = acl_plugin(resource.clone())?;
+    let result = get_resource(client.clone(), &namespace, &kong_plugin, &name).await?;
+    let (metadata, data, raw) = acl_plugin(crd.clone())?;
 
     if result.is_some() {
-        info!(resource = resource.name_any(), "Updating acl plugin");
-        patch_resource(client.clone(), namespace, kong_plugin, &name, raw).await?;
+        info!(resource = crd.name_any(), "Updating acl plugin");
+        patch_resource(client.clone(), &namespace, kong_plugin, &name, raw).await?;
     } else {
-        info!(resource = resource.name_any(), "Creating acl plugin");
-        create_resource(client.clone(), namespace, kong_plugin, metadata, data).await?;
+        info!(resource = crd.name_any(), "Creating acl plugin");
+        create_resource(client.clone(), &namespace, kong_plugin, metadata, data).await?;
     }
     Ok(())
 }
 
-async fn handle_consumer(
-    client: Client,
-    namespace: &str,
-    resource: &OgmiosPort,
-) -> Result<(), Error> {
-    let name = get_auth_name(&resource.name_any());
+async fn handle_consumer(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+    let namespace = crd.namespace().unwrap();
+
+    let name = get_auth_name(&crd.name_any());
     let kong_consumer = kong_consumer();
 
-    let result = get_resource(client.clone(), namespace, &kong_consumer, &name).await?;
-    let (metadata, data, raw) = consumer(resource.clone())?;
+    let result = get_resource(client.clone(), &namespace, &kong_consumer, &name).await?;
+    let (metadata, data, raw) = consumer(crd.clone())?;
 
     if result.is_some() {
-        info!(resource = resource.name_any(), "Updating consumer");
-        patch_resource(client.clone(), namespace, kong_consumer, &name, raw).await?;
+        info!(resource = crd.name_any(), "Updating consumer");
+        patch_resource(client.clone(), &namespace, kong_consumer, &name, raw).await?;
     } else {
-        info!(resource = resource.name_any(), "Creating consumer");
-        create_resource(client.clone(), namespace, kong_consumer, metadata, data).await?;
+        info!(resource = crd.name_any(), "Creating consumer");
+        create_resource(client.clone(), &namespace, kong_consumer, metadata, data).await?;
     }
     Ok(())
 }

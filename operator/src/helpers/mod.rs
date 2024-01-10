@@ -116,6 +116,6 @@ pub fn get_acl_name(name: &str) -> String {
     format!("ogmios-acl-{name}")
 }
 
-pub fn build_private_dns_service_name(network: &Network, version: &u8) -> String {
+pub fn ogmios_service_name(network: &Network, version: &u8) -> String {
     format!("ogmios-{network}-{version}")
 }
