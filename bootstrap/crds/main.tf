@@ -34,6 +34,11 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
               "type" = "string"
             },
             {
+              "jsonPath" = ".status.endpoint_key_url"
+              "name" = "Endpoint Key URL"
+              "type" = "string"
+            },
+            {
               "jsonPath" = ".status.authToken"
               "name" = "Auth Token"
               "type" = "string"
@@ -71,14 +76,20 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
                   "nullable" = true
                   "properties" = {
                     "authToken" = {
-                      "nullable" = true
+                      "type" = "string"
+                    }
+                    "endpointKeyUrl" = {
                       "type" = "string"
                     }
                     "endpointUrl" = {
-                      "nullable" = true
                       "type" = "string"
                     }
                   }
+                  "required" = [
+                    "authToken",
+                    "endpointKeyUrl",
+                    "endpointUrl",
+                  ]
                   "type" = "object"
                 }
               }

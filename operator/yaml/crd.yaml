@@ -22,6 +22,9 @@ spec:
     - jsonPath: .status.endpointUrl
       name: Endpoint URL
       type: string
+    - jsonPath: .status.endpoint_key_url
+      name: Endpoint Key URL
+      type: string
     - jsonPath: .status.authToken
       name: Auth Token
       type: string
@@ -51,11 +54,15 @@ spec:
             nullable: true
             properties:
               authToken:
-                nullable: true
+                type: string
+              endpointKeyUrl:
                 type: string
               endpointUrl:
-                nullable: true
                 type: string
+            required:
+            - authToken
+            - endpointKeyUrl
+            - endpointUrl
             type: object
         required:
         - spec
