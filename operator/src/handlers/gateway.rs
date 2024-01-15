@@ -1,22 +1,21 @@
-use kube::{core::ObjectMeta, Client, CustomResourceExt, Resource, ResourceExt};
+use kube::{core::ObjectMeta, Client, Resource, ResourceExt};
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use tracing::info;
 
 use crate::{
-    create_resource, get_acl_name, get_auth_name, get_config, get_resource, http_route,
-    ogmios_service_name, patch_resource, patch_resource_status, reference_grant, Error, OgmiosPort,
-    OgmiosPortStatus,
+    create_resource, get_acl_name, get_auth_name, get_config, get_http_route_key_name,
+    get_http_route_name, get_resource, http_route, ogmios_service_name, patch_resource,
+    reference_grant, Error, OgmiosPort,
 };
 
-pub async fn handle_http_route(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+pub async fn handle_http_route(client: &Client, crd: &OgmiosPort) -> Result<String, Error> {
     let namespace = crd.namespace().unwrap();
     let ogmios_service = ogmios_service_name(&crd.spec.network, &crd.spec.version);
 
-    let name = format!("ogmios-{}", crd.name_any());
-    let host_name = build_host(&crd.name_any(), &namespace_to_slug(&namespace));
+    let name = get_http_route_name(&crd.name_any());
+    let host_name = build_hostname(&crd.name_any(), &project_id(&namespace), None);
     let http_route = http_route();
-    let ogmios_port = OgmiosPort::api_resource();
 
     let result = get_resource(client.clone(), &namespace, &http_route, &name).await?;
 
@@ -30,22 +29,37 @@ pub async fn handle_http_route(client: Client, crd: &OgmiosPort) -> Result<(), E
         create_resource(client.clone(), &namespace, http_route, metadata, data).await?;
     }
 
-    let status = OgmiosPortStatus {
-        endpoint_url: Some(format!("https://{}", host_name)),
-        ..Default::default()
-    };
-    patch_resource_status(
-        client.clone(),
-        &namespace,
-        ogmios_port,
-        &crd.name_any(),
-        serde_json::to_value(status)?,
-    )
-    .await?;
-    Ok(())
+    Ok(host_name)
 }
 
-pub async fn handle_reference_grant(client: Client, crd: &OgmiosPort) -> Result<(), Error> {
+pub async fn handle_http_route_key(
+    client: &Client,
+    crd: &OgmiosPort,
+    key: &str,
+) -> Result<String, Error> {
+    let namespace = crd.namespace().unwrap();
+    let ogmios_service = ogmios_service_name(&crd.spec.network, &crd.spec.version);
+
+    let name = get_http_route_key_name(&crd.name_any());
+    let host_name = build_hostname(&crd.name_any(), &project_id(&namespace), Some(key));
+    let http_route = http_route();
+
+    let result = get_resource(client.clone(), &namespace, &http_route, &name).await?;
+
+    let (metadata, data, raw) = build_route(&name, &host_name, crd, &ogmios_service)?;
+
+    if result.is_some() {
+        info!(resource = crd.name_any(), "Updating http route");
+        patch_resource(client.clone(), &namespace, http_route, &name, raw).await?;
+    } else {
+        info!(resource = crd.name_any(), "Creating http route");
+        create_resource(client.clone(), &namespace, http_route, metadata, data).await?;
+    }
+
+    Ok(host_name)
+}
+
+pub async fn handle_reference_grant(client: &Client, crd: &OgmiosPort) -> Result<(), Error> {
     let namespace = crd.namespace().unwrap();
     let ogmios_service = ogmios_service_name(&crd.spec.network, &crd.spec.version);
 
@@ -69,7 +83,6 @@ pub async fn handle_reference_grant(client: Client, crd: &OgmiosPort) -> Result<
         .await?;
     } else {
         info!(resource = crd.name_any(), "Creating reference grant");
-        // we need to get the deserialized payload
         create_resource(
             client.clone(),
             &config.namespace,
@@ -85,15 +98,15 @@ pub async fn handle_reference_grant(client: Client, crd: &OgmiosPort) -> Result<
 fn build_route(
     name: &str,
     hostname: &str,
-    owner: &OgmiosPort,
+    crd: &OgmiosPort,
     ogmios_service: &str,
 ) -> Result<(ObjectMeta, JsonValue, JsonValue), Error> {
     let config = get_config();
     let http_route = http_route();
     let plugins = format!(
         "{},{}",
-        get_auth_name(&owner.name_any()),
-        get_acl_name(&owner.name_any()),
+        get_auth_name(&crd.name_any()),
+        get_acl_name(&crd.name_any()),
     );
 
     let metadata = ObjectMeta::deserialize(&json!({
@@ -110,8 +123,8 @@ fn build_route(
         {
           "apiVersion": OgmiosPort::api_version(&()).to_string(), // @TODO: try to grab this from the owner
           "kind": OgmiosPort::kind(&()).to_string(), // @TODO: try to grab this from the owner
-          "name": owner.name_any(),
-          "uid": owner.uid()
+          "name": crd.name_any(),
+          "uid": crd.uid()
         }
       ]
     }))?;
@@ -191,15 +204,18 @@ fn build_grant(
     Ok((metadata, data, raw))
 }
 
-fn build_host(name: &str, project_slug: &str) -> String {
+fn build_hostname(crd_name: &str, project_id: &str, key: Option<&str>) -> String {
     let config = get_config();
+    let ingress_class = &config.ingress_class;
+    let dns_zone = &config.dns_zone;
 
-    format!(
-        "{}-{}.{}.{}",
-        name, project_slug, config.ingress_class, config.dns_zone
-    )
+    if let Some(key) = key {
+        return format!("{key}.{crd_name}-{project_id}.{ingress_class}.{dns_zone}");
+    }
+
+    format!("{crd_name}-{project_id}.{ingress_class}.{dns_zone}")
 }
 
-fn namespace_to_slug(namespace: &str) -> String {
+fn project_id(namespace: &str) -> String {
     namespace.split_once('-').unwrap().1.to_string()
 }
