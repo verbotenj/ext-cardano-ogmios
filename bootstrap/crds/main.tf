@@ -34,8 +34,8 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
               "type" = "string"
             },
             {
-              "jsonPath" = ".status.endpoint_key_url"
-              "name" = "Endpoint Key URL"
+              "jsonPath" = ".status.authenticatedEndpointUrl"
+              "name" = "Authenticated Endpoint URL"
               "type" = "string"
             },
             {
@@ -78,7 +78,7 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
                     "authToken" = {
                       "type" = "string"
                     }
-                    "endpointKeyUrl" = {
+                    "authenticatedEndpointUrl" = {
                       "type" = "string"
                     }
                     "endpointUrl" = {
@@ -87,7 +87,7 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
                   }
                   "required" = [
                     "authToken",
-                    "endpointKeyUrl",
+                    "authenticatedEndpointUrl",
                     "endpointUrl",
                   ]
                   "type" = "object"

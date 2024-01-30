@@ -22,8 +22,8 @@ spec:
     - jsonPath: .status.endpointUrl
       name: Endpoint URL
       type: string
-    - jsonPath: .status.endpoint_key_url
-      name: Endpoint Key URL
+    - jsonPath: .status.authenticatedEndpointUrl
+      name: Authenticated Endpoint URL
       type: string
     - jsonPath: .status.authToken
       name: Auth Token
@@ -55,13 +55,13 @@ spec:
             properties:
               authToken:
                 type: string
-              endpointKeyUrl:
+              authenticatedEndpointUrl:
                 type: string
               endpointUrl:
                 type: string
             required:
             - authToken
-            - endpointKeyUrl
+            - authenticatedEndpointUrl
             - endpointUrl
             type: object
         required:
