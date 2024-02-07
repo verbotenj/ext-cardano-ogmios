@@ -19,11 +19,3 @@ variable "ogmios_version" {
     error_message = "Invalid version. Allowed values are 5 or 6."
   }
 }
-
-variable "salt" {
-  type = string
-}
-
-variable "well_known_service" {
-  default = true
-}
