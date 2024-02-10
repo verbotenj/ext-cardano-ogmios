@@ -4,8 +4,6 @@ locals {
 }
 
 resource "kubernetes_service_v1" "well_known_service" {
-  count = var.well_known_service ? 1 : 0
-
   metadata {
     name      = local.name
     namespace = var.namespace
