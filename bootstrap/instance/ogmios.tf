@@ -5,6 +5,8 @@ locals {
 }
 
 resource "kubernetes_deployment_v1" "ogmios" {
+  wait_for_rollout = false
+
   metadata {
     name      = local.name
     namespace = var.namespace
