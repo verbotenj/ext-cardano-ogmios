@@ -2,24 +2,25 @@ resource "kubernetes_deployment_v1" "ogmios_operator" {
   wait_for_rollout = false
 
   metadata {
-    name      = local.name
+    name      = local.operator_name
     namespace = var.namespace
     labels = {
-      role = local.role
+      role = local.operator_role
     }
   }
   spec {
-    replicas = var.replicas
+    replicas = 1
+
     selector {
       match_labels = {
-        role = local.role
+        role = local.operator_role
       }
     }
     template {
       metadata {
-        name = local.name
+        name = local.operator_name
         labels = {
-          role = local.role
+          role = local.operator_role
         }
       }
       spec {

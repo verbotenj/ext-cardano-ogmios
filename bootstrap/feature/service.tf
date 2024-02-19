@@ -1,12 +1,12 @@
 resource "kubernetes_service_v1" "operator_service" {
   metadata {
-    name      = local.name
+    name      = local.operator_name
     namespace = var.namespace
   }
 
   spec {
     selector = {
-      role = local.role
+      role = local.operator_role
     }
 
     port {
