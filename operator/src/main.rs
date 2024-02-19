@@ -6,7 +6,7 @@ use prometheus::{Encoder, TextEncoder};
 use std::{io, sync::Arc};
 use tracing::{info, Level};
 
-use ext_cardano_ogmios::{controller, State};
+use operator::{controller, metrics as metrics_collector, State};
 
 #[get("/metrics")]
 async fn metrics(c: Data<Arc<State>>, _req: HttpRequest) -> impl Responder {
@@ -28,9 +28,10 @@ async fn main() -> io::Result<()> {
 
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
-    let state = Arc::new(State::default());
+    let state = Arc::new(State::new());
 
     let controller = controller::run(state.clone());
+    let metrics_collector = metrics_collector::run_metrics_collector(state.clone());
 
     let addr = std::env::var("ADDR").unwrap_or("0.0.0.0:8080".into());
 
@@ -44,7 +45,7 @@ async fn main() -> io::Result<()> {
     .bind(&addr)?;
     info!({ addr }, "metrics server running");
 
-    tokio::join!(server.run(), controller,).0?;
+    tokio::join!(server.run(), controller, metrics_collector).0?;
 
     Ok(())
 }

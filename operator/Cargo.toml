@@ -1,5 +1,5 @@
 [package]
-name = "ext-cardano-ogmios"
+name = "operator"
 version = "0.1.0"
 edition = "2021"
 default-run = "controller"
@@ -11,12 +11,15 @@ actix-web = "4.4.0"
 argon2 = "0.5.2"
 base64 = "0.21.5"
 bech32 = "0.9.1"
+chrono = "0.4.34"
 dotenv = "0.15.0"
 futures = "0.3.29"
 k8s-openapi = { version = "0.20.0", features = ["latest"] }
 kube = { version = "0.87.1", features = ["runtime", "client", "derive"] }
 lazy_static = "1.4.0"
 prometheus = "0.13.3"
+regex = "1.10.3"
+reqwest = { version = "0.11.24", features = ["json"] }
 schemars = "0.8.16"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"

@@ -1,12 +1,12 @@
-name: Controller
+name: Proxy
 
 on:
   push:
     branches:
       - "main"
     paths:
-      - ".github/workflows/controller.yml"
-      - "operator/**"
+      - ".github/workflows/proxy.yml"
+      - "proxy/**"
 
 jobs:
   build-images:
@@ -15,8 +15,8 @@ jobs:
       matrix:
         include:
           - context: .
-            file: docker/dockerfile.operator
-            endpoint: demeter-run/ext-cardano-ogmios-operator
+            file: docker/dockerfile.proxy
+            endpoint: demeter-run/ext-cardano-ogmios-proxy
 
     continue-on-error: true
     runs-on: ubuntu-latest

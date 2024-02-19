@@ -10,8 +10,7 @@ use std::{sync::Arc, time::Duration};
 use tracing::{error, info, instrument};
 
 use crate::{
-    auth::handle_auth, build_hostname, patch_resource_status, Error, Metrics, Network, Result,
-    State,
+    build_api_key, build_hostname, patch_resource_status, Error, Metrics, Network, Result, State,
 };
 
 pub static OGMIOS_PORT_FINALIZER: &str = "ogmiosports.demeter.run";
@@ -56,9 +55,9 @@ impl Context {
 }
 
 async fn reconcile(crd: Arc<OgmiosPort>, ctx: Arc<Context>) -> Result<Action> {
-    let key = handle_auth(&ctx.client, &crd).await?;
+    let key = build_api_key(&crd).await?;
 
-    let (hostname, hostname_key) = build_hostname(&crd.spec.network, &key);
+    let (hostname, hostname_key) = build_hostname(&crd.spec.network, &crd.spec.version, &key);
 
     let status = OgmiosPortStatus {
         endpoint_url: format!("https://{hostname}",),

@@ -1,0 +1,313 @@
+# Project namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prj-mainnet-test
+---
+# Access for the service account
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-rs
+rules:
+  - apiGroups: ["demeter.run"]
+    resources: ["ogmiosports", "ogmiosports/status", "ogmiosports/finalizers"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create"]
+---
+# Scoped service account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-rs
+  namespace: prj-mainnet-test
+automountServiceAccountToken: true
+---
+# Binding the role to the account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-rs-binding
+  namespace: prj-mainnet-test
+subjects:
+  - kind: ServiceAccount
+    namespace: prj-mainnet-test
+    name: kube-rs
+roleRef:
+  kind: ClusterRole
+  name: kube-rs
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grafana dependence
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: prj-mainnet-test
+  labels:
+    app: grafana
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana
+          ports:
+            - name: grafana
+              containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: prj-mainnet-test
+  labels:
+    app: grafana
+spec:
+  ports:
+    - port: 3000
+  selector:
+    app: grafana
+  clusterIP: None
+---
+# Prometheus dependence
+apiVersion: v1
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+
+    scrape_configs:
+      - job_name: proxy
+        static_configs:
+          - targets: ["proxy:9187"]
+kind: ConfigMap
+metadata:
+  name: prometheus-vol
+  namespace: prj-mainnet-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: prj-mainnet-test
+  labels:
+    app: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: prometheus
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus
+          ports:
+            - name: prometheus
+              containerPort: 9090
+          volumeMounts:
+            - name: configs
+              mountPath: /etc/prometheus
+      volumes:
+        - name: configs
+          configMap:
+            name: prometheus-vol
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: prj-mainnet-test
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  type: ClusterIP
+  ports:
+    - name: prometheus
+      port: 80
+      targetPort: 9090
+      protocol: TCP
+---
+# Run proxy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy
+  namespace: prj-mainnet-test
+  labels:
+    app: proxy
+spec:
+  selector:
+    matchLabels:
+      app: proxy
+  template:
+    metadata:
+      labels:
+        app: proxy
+    spec:
+      serviceAccountName: kube-rs
+      containers:
+        - name: proxy
+          image: proxy:1.0
+          ports:
+            - containerPort: 80
+          env:
+            - name: PROXY_ADDR
+              value: "0.0.0.0:80"
+            - name: PROMETHEUS_ADDR
+              value: "0.0.0.0:9187"
+            - name: OGMIOS_PORT
+              value: "80"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy
+  namespace: prj-mainnet-test
+  labels:
+    app: proxy
+spec:
+  selector:
+    app: proxy
+  type: ClusterIP
+  ports:
+    - name: proxy
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: proxy-prometheus
+      port: 9187
+      targetPort: 9187
+      protocol: TCP
+---
+# Run operator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operator
+  namespace: prj-mainnet-test
+  labels:
+    app: operator
+spec:
+  selector:
+    matchLabels:
+      app: operator
+  template:
+    metadata:
+      labels:
+        app: operator
+    spec:
+      serviceAccountName: kube-rs
+      containers:
+        - name: operator
+          image: operator:1.0
+          ports:
+            - containerPort: 9187
+          env:
+            - name: ADDR
+              value: "0.0.0.0:9187"
+            - name: DCU_PER_FRAME
+              value: "preview=5,preprod=5,mainnet=5"
+            - name: METRICS_DELAY
+              value: "40"
+            - name: PROMETHEUS_URL
+              value: "http://prometheus/api/v1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: operator
+  namespace: prj-mainnet-test
+  labels:
+    app: operator
+spec:
+  selector:
+    app: operator
+  type: ClusterIP
+  ports:
+    - name: operator
+      port: 80
+      targetPort: 9187
+      protocol: TCP
+---
+# Mock dependence
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ogmios-mainnet-1
+  namespace: prj-mainnet-test
+  labels:
+    app: ogmios-mainnet-1
+spec:
+  selector:
+    matchLabels:
+      app: ogmios-mainnet-1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ogmios-mainnet-1
+    spec:
+      containers:
+        - name: ogmios-mainnet-1
+          image: paulobressan/mock-api:1.0.0
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: "80"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ogmios-mainnet-1
+  namespace: prj-mainnet-test
+  labels:
+    app: ogmios-mainnet-1
+spec:
+  selector:
+    app: ogmios-mainnet-1
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+---
+# Ogmios Port 1
+apiVersion: demeter.run/v1alpha1
+kind: OgmiosPort
+metadata:
+  name: mainnet-user-1
+  namespace: prj-mainnet-test
+spec:
+  network: "mainnet"
+  version: 1
+---
+# Ogmios Port 2
+apiVersion: demeter.run/v1alpha1
+kind: OgmiosPort
+metadata:
+  name: mainnet-user-2
+  namespace: prj-mainnet-test
+spec:
+  network: "mainnet"
+  version: 1
