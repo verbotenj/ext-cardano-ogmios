@@ -1,6 +1,6 @@
 # Ext Cardano Ogmios Operator
 
-This operator allow demeter to run and expose ogmios
+This operator allows demeter to run and expose ogmios
 
 ## Environment
 
@@ -27,7 +27,7 @@ cargo run
 
 ## Metrics
 
-to collect metrics for Prometheus, an http api will enable with the route /metrics.
+to collect metrics for Prometheus, an HTTP API will enable the route /metrics.
 
 ```
 /metrics

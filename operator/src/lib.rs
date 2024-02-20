@@ -5,6 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub use kube;
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Kube Error: {0}")]
@@ -21,6 +23,12 @@ pub enum Error {
 
     #[error("Parse Int error: {0}")]
     ParseIntError(#[source] std::num::ParseIntError),
+
+    #[error("Http Request error: {0}")]
+    HttpError(String),
+
+    #[error("Config Error: {0}")]
+    ConfigError(String),
 }
 impl Error {
     pub fn metric_label(&self) -> String {
@@ -100,11 +108,8 @@ pub use crate::controller::*;
 pub mod metrics;
 pub use metrics::*;
 
-mod helpers;
-pub use helpers::*;
-
-mod handlers;
-pub use handlers::*;
+mod utils;
+pub use utils::*;
 
 mod config;
 pub use config::*;
