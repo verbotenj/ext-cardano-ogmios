@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, path::PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -6,6 +6,8 @@ pub struct Config {
     pub proxy_namespace: String,
     pub prometheus_addr: String,
     pub ogmios_port: u16,
+    pub ssl_crt_path: PathBuf,
+    pub ssl_key_path: PathBuf,
 }
 
 impl Config {
@@ -14,6 +16,12 @@ impl Config {
             proxy_addr: env::var("PROXY_ADDR").expect("PROXY_ADDR must be set"),
             proxy_namespace: env::var("PROXY_NAMESPACE").unwrap_or("ftr-ogmios-v1".into()),
             prometheus_addr: env::var("PROMETHEUS_ADDR").expect("PROMETHEUS_ADDR must be set"),
+            ssl_crt_path: env::var("SSL_CRT_PATH")
+                .map(|e| e.into())
+                .expect("SSL_CRT_PATH must be set"),
+            ssl_key_path: env::var("SSL_KEY_PATH")
+                .map(|e| e.into())
+                .expect("SSL_KEY_PATH must be set"),
             ogmios_port: env::var("OGMIOS_PORT")
                 .expect("OGMIOS_PORT must be set")
                 .parse()
