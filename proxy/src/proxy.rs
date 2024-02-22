@@ -5,16 +5,22 @@ use hyper::client::conn::http1 as http1_client;
 use hyper::header::{
     HeaderValue, CONNECTION, HOST, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, UPGRADE,
 };
-use hyper::server::conn::http1 as http1_server;
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::server::conn::auto::Builder;
+use rustls::ServerConfig;
+use rustls_pki_types::{CertificateDer, PrivateKeyDer};
+use std::error::Error;
 use std::fmt::Display;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::{fs, io};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
+use tokio_rustls::TlsAcceptor;
 use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
 use tokio_tungstenite::tungstenite::protocol::Role;
 use tokio_tungstenite::{connect_async, WebSocketStream};
@@ -41,6 +47,13 @@ pub async fn start(rw_state: Arc<RwLock<State>>) {
     }
     let listener = listener_result.unwrap();
 
+    let tls_acceptor_result = build_tls_acceptor(&state);
+    if let Err(err) = tls_acceptor_result {
+        error!(error = err.to_string(), "fail to load tls");
+        std::process::exit(1);
+    }
+    let tls_acceptor = tls_acceptor_result.unwrap();
+
     info!(addr = state.config.proxy_addr, "proxy listening");
 
     loop {
@@ -52,14 +65,23 @@ pub async fn start(rw_state: Arc<RwLock<State>>) {
         }
         let (stream, _) = accept_result.unwrap();
 
-        tokio::task::spawn(async move {
-            let io = TokioIo::new(stream);
+        let tls_acceptor = tls_acceptor.clone();
+
+        tokio::spawn(async move {
+            let tls_stream = match tls_acceptor.accept(stream).await {
+                Ok(tls_stream) => tls_stream,
+                Err(err) => {
+                    error!(error = err.to_string(), "failed to perform tls handshake");
+                    return;
+                }
+            };
+
+            let io = TokioIo::new(tls_stream);
 
             let service = service_fn(move |req| handle(req, rw_state.clone()));
 
-            if let Err(err) = http1_server::Builder::new()
-                .serve_connection(io, service)
-                .with_upgrades()
+            if let Err(err) = Builder::new(TokioExecutor::new())
+                .serve_connection_with_upgrades(io, service)
                 .await
             {
                 error!(error = err.to_string(), "failed proxy server connection");
@@ -245,4 +267,30 @@ impl ProxyRequest {
             host,
         }
     }
+}
+
+fn build_tls_acceptor(state: &State) -> Result<TlsAcceptor, Box<dyn Error>> {
+    let certs = load_certs(&state.config.ssl_crt_path)?;
+
+    let key = load_private_key(&state.config.ssl_key_path)?;
+
+    let server_config = ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)
+        .unwrap();
+
+    let tls_acceptor = TlsAcceptor::from(Arc::new(server_config));
+    Ok(tls_acceptor)
+}
+
+fn load_certs(path: &PathBuf) -> io::Result<Vec<CertificateDer<'static>>> {
+    let cert_file = fs::File::open(path)?;
+    let mut reader = io::BufReader::new(cert_file);
+    rustls_pemfile::certs(&mut reader).collect()
+}
+
+fn load_private_key(path: &PathBuf) -> io::Result<PrivateKeyDer<'static>> {
+    let key_file = fs::File::open(path)?;
+    let mut reader = io::BufReader::new(key_file);
+    rustls_pemfile::private_key(&mut reader).map(|key| key.unwrap())
 }

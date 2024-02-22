@@ -147,6 +147,62 @@ spec:
       protocol: TCP
 ---
 # Run proxy
+apiVersion: v1
+data:
+  localhost.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDDzCCAfegAwIBAgIUM+uDlS5+M0PRTrSwcAlAMC1zYkwwDQYJKoZIhvcNAQEL
+    BQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTI0MDIyMDE3Mjk1OFoXDTI0MDMy
+    MTE3Mjk1OFowFDESMBAGA1UEAwwJbG9jYWxob3N0MIIBIjANBgkqhkiG9w0BAQEF
+    AAOCAQ8AMIIBCgKCAQEAn9O3c1TMOzrYgA2zRoxokV31pMhARUDc9i4h7IFYNubz
+    AHJI0ThZ8XWFtyWgWsKSjJOM1V3H3wzvpR9TDK7ksUjocP8a385Hy5dNtiWHaM0Z
+    lCVVqAxps6T3qqXMRU/ttnfzHwToiWTjiSFP9RszCmXJigYVoNW4YPwpH8+EdPrU
+    C+CNWRf6P3OvhKY9djSNAmrKWl1snc9n/LwGofKoC2ggmyYYZZqtySAcsoHlk58q
+    n0nik5+rqCBKqUSEnGoRU+iz/xbrXB+2MGAsk/v6CXA6rQvdCDW2Z+e0JdqqszXM
+    NpN4bVR107mxPia2tvMLJrMaVbFv1ysHNbQWoXQg3wIDAQABo1kwVzAUBgNVHREE
+    DTALgglsb2NhbGhvc3QwCwYDVR0PBAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMB
+    MB0GA1UdDgQWBBRYCnOgk68CN7DUMTPlrvo7hZxRVDANBgkqhkiG9w0BAQsFAAOC
+    AQEATBDWZ29zGjB9uzeEy8nsRK3KtTSRXHLF7Haog9Q0BAYD/nGZVQk0PzMBbAAs
+    T3vtA+RWGt3qXuxCEjqxIVFUZGO1JPOk05T9rrV2iv+cBBrgPLka7yeZDlmdRE9k
+    /Y6O43nZrGidqDjA5Na+S+vqMA4SRlp2Nd8vtbGaNxUkm+8VYaI2EgeBB6LtbtAj
+    GjwWDj2sR2bh4Rx9VhNg1DhCBjN52ww5gC7UzDlYSFB3vcA9CX7WIHvfHcXSJ8oV
+    TkR8NJopLMlwUFazsNBe7kEZeiyv4XPKiCysUKfh6q0VhAUjlVgg6Ljd38N5e6ep
+    Fzcbv6g2bfI4vKicDA7Bqi/xNA==
+    -----END CERTIFICATE-----
+  localhost.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCf07dzVMw7OtiA
+    DbNGjGiRXfWkyEBFQNz2LiHsgVg25vMAckjROFnxdYW3JaBawpKMk4zVXcffDO+l
+    H1MMruSxSOhw/xrfzkfLl022JYdozRmUJVWoDGmzpPeqpcxFT+22d/MfBOiJZOOJ
+    IU/1GzMKZcmKBhWg1bhg/Ckfz4R0+tQL4I1ZF/o/c6+Epj12NI0CaspaXWydz2f8
+    vAah8qgLaCCbJhhlmq3JIByygeWTnyqfSeKTn6uoIEqpRIScahFT6LP/FutcH7Yw
+    YCyT+/oJcDqtC90INbZn57Ql2qqzNcw2k3htVHXTubE+Jra28wsmsxpVsW/XKwc1
+    tBahdCDfAgMBAAECggEAGiQ88JuWvrwEnAf292ZmgXBcNKme/t95xLe4S2tp4aur
+    ZLqh97vp1OP4t64V060uNIQQbaMQhVvOTrRtlw4m0GsxFFpa1kRyhcr8+6VDx/vU
+    CovYviCETCKCx+H6eVPLeSRBcHoTDCCjqX2jYF8kiAzXXBYGr5natdzzX6/yOwJm
+    zMfrJdTDll4njIfThk06dZA7dpGxSRxK/689J/TNG/sT6PWduZOOQ4gZDIlBwG9s
+    mNzbZo+YrS9OreV3cMq8MnPDQKcIpxCogoiXlDIY9iFL8BfKqpjKlYoIvWR5FuNu
+    XFiKqBZxtK3dFfQKX5btabICiKggeutUZ/upa5gfoQKBgQDXqU20v22ikNm6qj32
+    m9bCp4edJ68JJWU6JARCbb9gDXtcP6P+oSteoSihY9RikI5rEM9lvVjDpzjgbJEV
+    3aQxBTHT9MKweona+jhqNgqZnea4d3h4uTu24fINWhxedeWWFgbFDbBt/lnmRv4k
+    Kj/r3O/D/1/l9dCsdOw3Thw/2QKBgQC9uNmyrnX5m3xoiZr0BuFpCl9SrHfYaOKz
+    jg6IqUV0M+z+Fmefen9EKQpuIA16oPYqr0ogyx/GFpbbI4aU+3H2eTm1UDeSenJ5
+    I6DayZhZM8Y3G1PtTYJBy87QB7C0klpa+X0jML3seDp6jQgNnWbqGIgvDyJWHFy2
+    B+ZkWcErdwKBgFxWJOsquypLkq2Vjoo0FzOovyvOfecQl9LY8OnwS2w42YSZywGO
+    yB7wKZFQSPMaqZ+1xtbsx0CeLIAKe+Q8zbwfWUJDHcip7rRPRjBTix5SuSJqJK6r
+    wKGBBD4rQtI+8FnefG+KeOvfZ2ZtJwsc+9lk81Ob19eB9CKivTDAxN+hAoGAH0SE
+    1Hb+SIoAofXzzL4JjldASI7WHZuDqVYDPTCwmqsoJuQoZdc5fFFLP8UWk5xNldFX
+    5Tm03d/BMxKSzqD2MkneYex7jC+UCDUAAK7y5dirlU9ysIxyqEdfqVdrHwdzzsSJ
+    hDA3TO6vrJzrs9q6KGCsqRzUat63xOReazGDrZcCgYAOC+ZXjnvb4sHffmUGZn7R
+    p1JvAS1eoOgwR284jS3DGdNRYxXsaqpD5SLpLzWDXPDfsPKDg613MjaBrghceA9i
+    1+pvxRA1z1SjK0UtkVc280pRwNZjue/GtNnc0KgkqN3guJ5WeDumBxmStJ5KGNYG
+    T4jj2oxkaijVhOEOzUkq4w==
+    -----END PRIVATE KEY-----
+kind: ConfigMap
+metadata:
+  name: proxy-vol
+  namespace: prj-mainnet-test
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -176,6 +232,18 @@ spec:
               value: "0.0.0.0:9187"
             - name: OGMIOS_PORT
               value: "80"
+            - name: SSL_CRT_PATH
+              value: "/certs/localhost.crt"
+            - name: SSL_KEY_PATH
+              value: "/certs/localhost.key"
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+
+      volumes:
+        - name: certs
+          configMap:
+            name: proxy-vol
 ---
 apiVersion: v1
 kind: Service
