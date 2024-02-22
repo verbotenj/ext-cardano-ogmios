@@ -32,8 +32,8 @@ pub fn build_hostname(network: &Network, version: &u8, key: &str) -> (String, St
     let ingress_class = &config.ingress_class;
     let dns_zone = &config.dns_zone;
 
-    let hostname = format!("{network}-{version}.{ingress_class}.{dns_zone}");
-    let hostname_key = format!("{key}.{network}-{version}.{ingress_class}.{dns_zone}");
+    let hostname = format!("{network}-v{version}.{ingress_class}.{dns_zone}");
+    let hostname_key = format!("{key}.{network}-v{version}.{ingress_class}.{dns_zone}");
 
     (hostname, hostname_key)
 }
