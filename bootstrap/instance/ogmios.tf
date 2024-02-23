@@ -1,6 +1,6 @@
 locals {
   name           = "ogmios-${var.network}-${var.ogmios_version}-${var.salt}"
-  image          = "ghcr.io/demeter-run/cardano-ogmios:${var.ogmios_image_tag}"
+  image          = var.ogmios_image
   container_port = 1337
 }
 
@@ -114,15 +114,14 @@ resource "kubernetes_deployment_v1" "ogmios" {
         toleration {
           effect   = "NoSchedule"
           key      = "demeter.run/compute-profile"
-          operator = "Equal"
-          value    = "general-purpose"
+          operator = "Exists"
         }
 
         toleration {
           effect   = "NoSchedule"
           key      = "demeter.run/compute-arch"
           operator = "Equal"
-          value    = "x86"
+          value    = var.compute_arch
         }
 
         toleration {

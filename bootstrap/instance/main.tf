@@ -11,7 +11,7 @@ variable "ogmios_version" {
   }
 }
 
-variable "ogmios_image_tag" {
+variable "ogmios_image" {
   type = string
 }
 
@@ -58,4 +58,9 @@ variable "resources" {
       memory : "500Mi"
     }
   }
+}
+
+
+variable "compute_arch" {
+  type = string
 }

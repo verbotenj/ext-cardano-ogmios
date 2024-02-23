@@ -1,5 +1,6 @@
 resource "kubernetes_deployment_v1" "ogmios_proxy" {
   wait_for_rollout = false
+  depends_on = [ kubernetes_manifest.certificate_cluster_wildcard_tls ]
 
   metadata {
     name      = local.name
@@ -25,7 +26,7 @@ resource "kubernetes_deployment_v1" "ogmios_proxy" {
       spec {
         container {
           name              = "main"
-          image             = var.image
+          image             = "ghcr.io/demeter-run/ext-cardano-ogmios-proxy:${var.proxy_image_tag}"
           image_pull_policy = "IfNotPresent"
 
           resources {
@@ -69,6 +70,28 @@ resource "kubernetes_deployment_v1" "ogmios_proxy" {
           env {
             name  = "OGMIOS_PORT"
             value = var.ogmios_port
+          }
+
+          env {
+            name = "SSL_CRT_PATH"
+            value = "/certs/tls.crt"
+          }
+
+          env {
+            name = "SSL_KEY_PATH"
+            value = "/certs/tls.key"
+          }
+
+          volume_mount {
+            mount_path = "/certs"
+            name       = "certs"
+          }
+        }
+
+        volume {
+          name = "certs"
+          secret {
+            secret_name = local.cert_secret_name
           }
         }
 

@@ -9,7 +9,7 @@ variable "namespace" {
   type = string
 }
 
-variable "image" {
+variable "operator_image_tag" {
   type = string
 }
 
@@ -18,9 +18,9 @@ variable "dns_zone" {
   default = "demeter.run"
 }
 
-variable "ingress_class" {
+variable "extension_name" {
   type    = string
-  default = "ogmios-v1"
+  default = "ogmios-m1"
 }
 
 variable "api_key_salt" {
