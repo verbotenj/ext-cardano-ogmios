@@ -6,7 +6,7 @@ use hyper::header::{
     HeaderValue, CONNECTION, HOST, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, UPGRADE,
 };
 use hyper::service::service_fn;
-use hyper::{Request, Response, StatusCode};
+use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder;
 use rustls::ServerConfig;
@@ -94,31 +94,43 @@ async fn handle(
     mut hyper_req: Request<Incoming>,
     rw_state: Arc<RwLock<State>>,
 ) -> Result<ProxyResponse, hyper::Error> {
-    let state = rw_state.read().await.clone();
-    let proxy_req = ProxyRequest::new(&mut hyper_req, &state);
+    match (hyper_req.method(), hyper_req.uri().path()) {
+        (&Method::GET, "/healthz") => handle_healthz().await,
+        _ => {
+            let state = rw_state.read().await.clone();
+            let proxy_req_result = ProxyRequest::new(&mut hyper_req, &state);
+            if proxy_req_result.is_none() {
+                return Ok(Response::builder()
+                    .status(StatusCode::BAD_GATEWAY)
+                    .body(full("Invalid hostname"))
+                    .unwrap());
+            }
 
-    if proxy_req.consumer.is_none() {
-        return Ok(Response::builder()
-            .status(StatusCode::UNAUTHORIZED)
-            .body(full("Unauthorized"))
-            .unwrap());
-    }
+            let proxy_req = proxy_req_result.unwrap();
+            if proxy_req.consumer.is_none() {
+                return Ok(Response::builder()
+                    .status(StatusCode::UNAUTHORIZED)
+                    .body(full("Unauthorized"))
+                    .unwrap());
+            }
 
-    let response_result = match proxy_req.protocol {
-        Protocol::Http => handle_http(hyper_req, &proxy_req).await,
-        Protocol::Websocket => handle_websocket(hyper_req, &proxy_req, rw_state).await,
-    };
+            let response_result = match proxy_req.protocol {
+                Protocol::Http => handle_http(hyper_req, &proxy_req).await,
+                Protocol::Websocket => handle_websocket(hyper_req, &proxy_req, rw_state).await,
+            };
 
-    match &response_result {
-        Ok(response) => {
-            state
-                .metrics
-                .count_http_total_request(&proxy_req, response.status());
+            match &response_result {
+                Ok(response) => {
+                    state
+                        .metrics
+                        .count_http_total_request(&proxy_req, response.status());
+                }
+                Err(_) => todo!("send error to prometheus"),
+            };
+
+            response_result
         }
-        Err(_) => todo!("send error to prometheus"),
-    };
-
-    response_result
+    }
 }
 
 async fn handle_http(
@@ -204,6 +216,13 @@ async fn handle_websocket(
     Ok(res)
 }
 
+async fn handle_healthz() -> Result<ProxyResponse, hyper::Error> {
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .body(full("pong"))
+        .unwrap())
+}
+
 #[derive(Debug, Clone)]
 pub enum Protocol {
     Http,
@@ -227,13 +246,13 @@ pub struct ProxyRequest {
     pub protocol: Protocol,
 }
 impl ProxyRequest {
-    pub fn new(hyper_req: &mut Request<Incoming>, state: &State) -> Self {
-        let mut host = get_header(hyper_req, HOST.as_str()).unwrap();
+    pub fn new(hyper_req: &mut Request<Incoming>, state: &State) -> Option<Self> {
+        let mut host = get_header(hyper_req, HOST.as_str())?;
         let host_regex = host.clone();
 
-        let captures = state.host_regex.captures(&host_regex).unwrap();
-        let network = captures.get(2).unwrap().as_str().to_string();
-        let version = captures.get(3).unwrap().as_str().to_string();
+        let captures = state.host_regex.captures(&host_regex)?;
+        let network = captures.get(2)?.as_str().to_string();
+        let version = captures.get(3)?.as_str().to_string();
 
         let instance = format!("ogmios-{network}-{version}:{}", state.config.ogmios_port);
         let namespace = state.config.proxy_namespace.clone();
@@ -259,13 +278,13 @@ impl ProxyRequest {
         let token = get_header(hyper_req, DMTR_API_KEY).unwrap_or_default();
         let consumer = state.get_auth_token(&network, &version, &token);
 
-        Self {
+        Some(Self {
             namespace,
             instance,
             consumer,
             protocol,
             host,
-        }
+        })
     }
 }
 
