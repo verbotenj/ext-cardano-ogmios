@@ -65,7 +65,7 @@ impl State {
     pub fn try_new() -> Result<Self, Box<dyn Error>> {
         let config = Config::new();
         let metrics = Metrics::try_new(Registry::default())?;
-        let host_regex = Regex::new(r"(dmtr_[\w\d-]+)?\.?([\w]+)-([\d]).+")?;
+        let host_regex = Regex::new(r"(dmtr_[\w\d-]+)?\.?([\w]+)-v([\d]).+")?;
         let consumers = HashMap::new();
 
         Ok(Self {
