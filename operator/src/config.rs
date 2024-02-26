@@ -12,7 +12,7 @@ pub fn get_config() -> &'static Config {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub dns_zone: String,
-    pub ingress_class: String,
+    pub extension_name: String,
     pub api_key_salt: String,
     pub dcu_per_frame: HashMap<String, f64>,
     pub metrics_delay: Duration,
@@ -22,7 +22,7 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Self {
         let dns_zone = env::var("DNS_ZONE").unwrap_or("demeter.run".into());
-        let ingress_class = env::var("INGRESS_CLASS").unwrap_or("ogmios-m1".into());
+        let extension_name = env::var("EXTENSION_NAME").unwrap_or("ogmios-m1".into());
         let api_key_salt = env::var("API_KEY_SALT").unwrap_or("ogmios-salt".into());
         let dcu_per_frame = env::var("DCU_PER_FRAME")
             .expect("DCU_PER_FRAME must be set")
@@ -47,7 +47,7 @@ impl Config {
 
         Self {
             dns_zone,
-            ingress_class,
+            extension_name,
             api_key_salt,
             dcu_per_frame,
             metrics_delay,

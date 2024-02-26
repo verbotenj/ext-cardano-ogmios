@@ -26,7 +26,7 @@ resource "kubernetes_deployment_v1" "ogmios_operator" {
       spec {
         container {
           name              = "main"
-          image             = var.image
+          image             = "ghcr.io/demeter-run/ext-cardano-ogmios-operator:${var.operator_image_tag}"
           image_pull_policy = "IfNotPresent"
 
           resources {
@@ -57,8 +57,8 @@ resource "kubernetes_deployment_v1" "ogmios_operator" {
           }
 
           env {
-            name  = "INGRESS_CLASS"
-            value = var.ingress_class
+            name  = "EXTENSION_NAME"
+            value = var.extension_name
           }
 
           env {
