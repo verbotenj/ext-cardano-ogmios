@@ -29,11 +29,14 @@ pub static OGMIOS_PORT_FINALIZER: &str = "ogmiosports.demeter.run";
         {"name": "Endpoint URL", "jsonPath": ".status.endpointUrl",  "type": "string"},
         {"name": "Authenticated Endpoint URL", "jsonPath": ".status.authenticatedEndpointUrl", "type": "string"},
         {"name": "Auth Token", "jsonPath": ".status.authToken", "type": "string"}
+        {"name": "Throughput Tier", "jsonPath":".spec.throughputTier", "type": "string"}, 
     "#)]
 #[serde(rename_all = "camelCase")]
 pub struct OgmiosPortSpec {
     pub network: Network,
     pub version: u8,
+    // throughput should be 0, 1, 2
+    pub throughput_tier: String,
 }
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema)]
