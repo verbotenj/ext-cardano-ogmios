@@ -1,8 +1,6 @@
 use config::Config;
 use dotenv::dotenv;
 use metrics::Metrics;
-use operator::kube::ResourceExt;
-use operator::OgmiosPort;
 use prometheus::Registry;
 use regex::Regex;
 use std::collections::HashMap;
@@ -74,21 +72,6 @@ impl State {
             host_regex,
             consumers,
         })
-    }
-
-    pub fn add_auth_token(&mut self, crd: &OgmiosPort) {
-        if crd.status.is_some() {
-            let network = crd.spec.network.to_string();
-            let version = crd.spec.version;
-            let auth_token = crd.status.as_ref().unwrap().auth_token.clone();
-            let namespace = crd.metadata.namespace.as_ref().unwrap().clone();
-            let port_name = crd.name_any();
-
-            let hash_key = format!("{}.{}.{}", network, version, auth_token);
-            let consumer = Consumer::new(namespace, port_name);
-
-            self.consumers.insert(hash_key, consumer);
-        }
     }
 
     pub fn get_auth_token(&self, network: &str, version: &str, token: &str) -> Option<Consumer> {

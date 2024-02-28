@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use futures_util::TryStreamExt;
 use operator::{
@@ -8,14 +8,14 @@ use operator::{
             watcher::{self, Config},
             WatchStreamExt,
         },
-        Api, Client,
+        Api, Client, ResourceExt,
     },
     OgmiosPort,
 };
 use tokio::{pin, sync::RwLock};
 use tracing::error;
 
-use crate::State;
+use crate::{Consumer, State};
 
 pub async fn start(state: Arc<RwLock<State>>) {
     let client = Client::try_default()
@@ -23,17 +23,9 @@ pub async fn start(state: Arc<RwLock<State>>) {
         .expect("failed to create kube client");
 
     let api = Api::<OgmiosPort>::all(client.clone());
-    let result = api.list(&ListParams::default()).await;
-    if let Err(err) = result {
-        error!(error = err.to_string(), "error to get crds");
-        std::process::exit(1);
-    }
+    update_auth(state.clone(), api.clone()).await;
 
-    for crd in result.unwrap().items.iter() {
-        state.write().await.add_auth_token(crd);
-    }
-
-    let stream = watcher::watcher(api, Config::default()).applied_objects();
+    let stream = watcher::watcher(api.clone(), Config::default()).touched_objects();
     pin!(stream);
 
     loop {
@@ -42,8 +34,35 @@ pub async fn start(state: Arc<RwLock<State>>) {
             error!(error = err.to_string(), "fail crd auth watcher");
             continue;
         }
-        if let Some(crd) = result.unwrap() {
-            state.write().await.add_auth_token(&crd);
+
+        update_auth(state.clone(), api.clone()).await;
+    }
+}
+
+async fn update_auth(state: Arc<RwLock<State>>, api: Api<OgmiosPort>) {
+    let result = api.list(&ListParams::default()).await;
+    if let Err(err) = result {
+        error!(
+            error = err.to_string(),
+            "error to get crds while updating auth keys"
+        );
+        return;
+    }
+
+    let mut consumers = HashMap::new();
+    for crd in result.unwrap().items.iter() {
+        if crd.status.is_some() {
+            let network = crd.spec.network.to_string();
+            let version = crd.spec.version;
+            let auth_token = crd.status.as_ref().unwrap().auth_token.clone();
+            let namespace = crd.metadata.namespace.as_ref().unwrap().clone();
+            let port_name = crd.name_any();
+
+            let hash_key = format!("{}.{}.{}", network, version, auth_token);
+            let consumer = Consumer::new(namespace, port_name);
+
+            consumers.insert(hash_key, consumer);
         }
     }
+    state.write().await.consumers = consumers;
 }
