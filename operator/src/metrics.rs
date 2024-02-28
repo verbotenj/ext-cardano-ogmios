@@ -92,7 +92,7 @@ pub async fn run_metrics_collector(state: Arc<State>) {
         let config = get_config();
         let client = reqwest::Client::builder().build().unwrap();
         let project_regex = Regex::new(r"prj-(.+)\..+").unwrap();
-        let network_regex = Regex::new(r"([\w]+)\..+").unwrap();
+        let network_regex = Regex::new(r"([\w]+)-.+").unwrap();
         let mut last_execution = Utc::now();
 
         loop {
