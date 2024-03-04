@@ -8,10 +8,14 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
     "spec" = {
       "group" = "demeter.run"
       "names" = {
-        "categories" = []
+        "categories" = [
+          "demeter-port",
+        ]
         "kind" = "OgmiosPort"
         "plural" = "ogmiosports"
-        "shortNames" = []
+        "shortNames" = [
+          "opt",
+        ]
         "singular" = "ogmiosport"
       }
       "scope" = "Namespaced"
@@ -43,6 +47,11 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
               "name" = "Auth Token"
               "type" = "string"
             },
+            {
+              "jsonPath" = ".spec.throughputTier"
+              "name" = "Throughput Tier"
+              "type" = "string"
+            },
           ]
           "name" = "v1alpha1"
           "schema" = {
@@ -60,6 +69,9 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
                       ]
                       "type" = "string"
                     }
+                    "throughputTier" = {
+                      "type" = "string"
+                    }
                     "version" = {
                       "format" = "uint8"
                       "minimum" = 0
@@ -68,6 +80,7 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
                   }
                   "required" = [
                     "network",
+                    "throughputTier",
                     "version",
                   ]
                   "type" = "object"

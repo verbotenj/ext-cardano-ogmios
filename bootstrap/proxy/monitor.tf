@@ -19,7 +19,7 @@ resource "kubernetes_manifest" "operator_monitor" {
       podMetricsEndpoints = [
         {
           port = "metrics",
-          path = "/"
+          path = "/metrics"
         }
       ]
     }

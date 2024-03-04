@@ -18,15 +18,16 @@ module "ogmios_v1_feature" {
   source             = "./feature"
   namespace          = var.namespace
   operator_image_tag = var.operator_image_tag
-  metrics_delay      = 60
+  metrics_delay      = var.metrics_delay
   extension_name     = var.extension_name
+  api_key_salt       = var.api_key_salt
 }
 
 module "ogmios_v1_proxy" {
   depends_on      = [kubernetes_namespace.namespace]
   source          = "./proxy"
   namespace       = var.namespace
-  replicas        = 1
+  replicas        = var.proxy_replicas
   proxy_image_tag = var.proxy_image_tag
   extension_name  = var.extension_name
 }
@@ -54,6 +55,7 @@ module "ogmios_instances" {
   node_private_dns = each.value.node_private_dns
   ogmios_version   = each.value.ogmios_version
   compute_arch     = each.value.compute_arch
+  replicas         = each.value.replicas
 }
 
 module "ogmios_services" {
