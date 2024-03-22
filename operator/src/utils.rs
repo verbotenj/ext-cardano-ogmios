@@ -9,7 +9,7 @@ use kube::{
 };
 use serde_json::json;
 
-use crate::{get_config, Error, Network, OgmiosPort};
+use crate::{get_config, Error, OgmiosPort};
 
 pub async fn patch_resource_status(
     client: Client,
@@ -27,7 +27,7 @@ pub async fn patch_resource_status(
     Ok(())
 }
 
-pub fn build_hostname(network: &Network, version: &u8, key: &str) -> (String, String) {
+pub fn build_hostname(network: &str, version: &u8, key: &str) -> (String, String) {
     let config = get_config();
     let extension_name = &config.extension_name;
     let dns_zone = &config.dns_zone;

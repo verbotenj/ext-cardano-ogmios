@@ -61,12 +61,6 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
                 "spec" = {
                   "properties" = {
                     "network" = {
-                      "enum" = [
-                        "mainnet",
-                        "preprod",
-                        "preview",
-                        "sanchonet",
-                      ]
                       "type" = "string"
                     }
                     "throughputTier" = {

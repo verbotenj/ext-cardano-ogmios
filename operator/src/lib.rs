@@ -1,8 +1,4 @@
-use std::fmt::{self, Display, Formatter};
-
 use prometheus::Registry;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub use kube;
@@ -75,28 +71,6 @@ impl State {
 
     pub fn metrics_collected(&self) -> Vec<prometheus::proto::MetricFamily> {
         self.registry.gather()
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-pub enum Network {
-    #[serde(rename = "mainnet")]
-    Mainnet,
-    #[serde(rename = "preprod")]
-    Preprod,
-    #[serde(rename = "preview")]
-    Preview,
-    #[serde(rename = "sanchonet")]
-    Sanchonet,
-}
-impl Display for Network {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Network::Mainnet => write!(f, "mainnet"),
-            Network::Preprod => write!(f, "preprod"),
-            Network::Preview => write!(f, "preview"),
-            Network::Sanchonet => write!(f, "sanchonet"),
-        }
     }
 }
 
