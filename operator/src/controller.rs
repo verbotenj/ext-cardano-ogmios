@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, instrument};
 
-use crate::{
-    build_api_key, build_hostname, patch_resource_status, Error, Metrics, Network, Result, State,
-};
+use crate::{build_api_key, build_hostname, patch_resource_status, Error, Metrics, Result, State};
 
 pub static OGMIOS_PORT_FINALIZER: &str = "ogmiosports.demeter.run";
 
@@ -20,6 +18,8 @@ pub static OGMIOS_PORT_FINALIZER: &str = "ogmiosports.demeter.run";
     kind = "OgmiosPort",
     group = "demeter.run",
     version = "v1alpha1",
+    category = "demeter-port",
+    shortname = "opt",
     namespaced
 )]
 #[kube(status = "OgmiosPortStatus")]
@@ -28,12 +28,12 @@ pub static OGMIOS_PORT_FINALIZER: &str = "ogmiosports.demeter.run";
         {"name": "Version", "jsonPath": ".spec.version", "type": "number"},
         {"name": "Endpoint URL", "jsonPath": ".status.endpointUrl",  "type": "string"},
         {"name": "Authenticated Endpoint URL", "jsonPath": ".status.authenticatedEndpointUrl", "type": "string"},
-        {"name": "Auth Token", "jsonPath": ".status.authToken", "type": "string"}
-        {"name": "Throughput Tier", "jsonPath":".spec.throughputTier", "type": "string"}, 
+        {"name": "Auth Token", "jsonPath": ".status.authToken", "type": "string"},
+        {"name": "Throughput Tier", "jsonPath":".spec.throughputTier", "type": "string"}
     "#)]
 #[serde(rename_all = "camelCase")]
 pub struct OgmiosPortSpec {
-    pub network: Network,
+    pub network: String,
     pub version: u8,
     // throughput should be 0, 1, 2
     pub throughput_tier: String,

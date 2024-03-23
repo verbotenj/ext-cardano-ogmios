@@ -11,6 +11,7 @@ resource "kubernetes_deployment_v1" "ogmios" {
     name      = local.name
     namespace = var.namespace
     labels = {
+      "role"                               = "instance"
       "demeter.run/kind"                   = "OgmiosInstance"
       "cardano.demeter.run/network"        = var.network
       "cardano.demeter.run/ogmios-version" = var.ogmios_version
@@ -20,6 +21,7 @@ resource "kubernetes_deployment_v1" "ogmios" {
     replicas = var.replicas
     selector {
       match_labels = {
+        "role"                               = "instance"
         "demeter.run/instance"               = local.name
         "cardano.demeter.run/network"        = var.network
         "cardano.demeter.run/ogmios-version" = var.ogmios_version
@@ -29,6 +31,7 @@ resource "kubernetes_deployment_v1" "ogmios" {
       metadata {
         name = local.name
         labels = {
+          "role"                               = "instance"
           "demeter.run/instance"               = local.name
           "cardano.demeter.run/network"        = var.network
           "cardano.demeter.run/ogmios-version" = var.ogmios_version

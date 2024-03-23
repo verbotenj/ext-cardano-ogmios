@@ -1,5 +1,5 @@
-use operator::controller;
 use kube::CustomResourceExt;
+use operator::controller;
 
 fn main() {
     print!(

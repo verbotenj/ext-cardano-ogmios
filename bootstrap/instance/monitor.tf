@@ -1,4 +1,4 @@
-resource "kubernetes_manifest" "operator_monitor" {
+resource "kubernetes_manifest" "instance_monitor" {
   manifest = {
     apiVersion = "monitoring.coreos.com/v1"
     kind       = "PodMonitor"
@@ -7,18 +7,18 @@ resource "kubernetes_manifest" "operator_monitor" {
         "app.kubernetes.io/component" = "o11y"
         "app.kubernetes.io/part-of"   = "demeter"
       }
-      name      = "proxy"
+      name      = "instance"
       namespace = var.namespace
     }
     spec = {
       selector = {
         matchLabels = {
-          role = "proxy"
+          role = "instance"
         }
       }
       podMetricsEndpoints = [
         {
-          port = "metrics",
+          port = "api",
           path = "/metrics"
         }
       ]

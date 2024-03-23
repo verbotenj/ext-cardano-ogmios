@@ -118,5 +118,6 @@ variable "instances" {
     node_private_dns = string
     ogmios_version   = string
     compute_arch     = string
+    replicas         = number
   }))
 }
