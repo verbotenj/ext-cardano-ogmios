@@ -5,10 +5,9 @@ use std::{net::SocketAddr, str::FromStr};
 use hyper::server::conn::http1 as http1_server;
 use hyper::{body::Incoming, service::service_fn, Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
-use prometheus::{opts, Encoder, IntCounterVec, Registry, TextEncoder};
+use prometheus::{opts, Encoder, IntCounterVec, IntGaugeVec, Registry, TextEncoder};
 use tokio::net::TcpListener;
-use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 use crate::proxy::ProxyRequest;
 use crate::utils::{full, ProxyResponse};
@@ -18,7 +17,7 @@ use crate::{Consumer, State};
 pub struct Metrics {
     registry: Registry,
     pub ws_total_frame: IntCounterVec,
-    pub ws_total_connection: IntCounterVec,
+    pub ws_total_connection: IntGaugeVec,
     pub http_total_request: IntCounterVec,
 }
 
@@ -30,7 +29,7 @@ impl Metrics {
         )
         .unwrap();
 
-        let ws_total_connection = IntCounterVec::new(
+        let ws_total_connection = IntGaugeVec::new(
             opts!(
                 "ogmios_proxy_ws_total_connection",
                 "total of websocket connection",
@@ -85,7 +84,7 @@ impl Metrics {
             .inc()
     }
 
-    pub fn count_ws_total_connection(&self, proxy_req: &ProxyRequest) {
+    pub fn inc_ws_total_connection(&self, proxy_req: &ProxyRequest) {
         let consumer = proxy_req
             .consumer
             .as_ref()
@@ -100,6 +99,23 @@ impl Metrics {
                 &consumer,
             ])
             .inc()
+    }
+
+    pub fn dec_ws_total_connection(&self, proxy_req: &ProxyRequest) {
+        let consumer = proxy_req
+            .consumer
+            .as_ref()
+            .unwrap_or(&Consumer::default())
+            .to_string();
+
+        self.ws_total_connection
+            .with_label_values(&[
+                &proxy_req.namespace,
+                &proxy_req.instance,
+                &proxy_req.host,
+                &consumer,
+            ])
+            .dec()
     }
 
     pub fn count_http_total_request(&self, proxy_req: &ProxyRequest, status_code: StatusCode) {
@@ -135,10 +151,8 @@ async fn api_get_metrics(state: &State) -> Result<ProxyResponse, hyper::Error> {
 
 async fn routes_match(
     req: Request<Incoming>,
-    rw_state: Arc<RwLock<State>>,
+    state: Arc<State>,
 ) -> Result<ProxyResponse, hyper::Error> {
-    let state = rw_state.read().await.clone();
-
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/metrics") => api_get_metrics(&state).await,
         _ => Ok(Response::builder()
@@ -148,9 +162,8 @@ async fn routes_match(
     }
 }
 
-pub async fn start(rw_state: Arc<RwLock<State>>) {
-    let state = rw_state.read().await.clone();
-
+#[instrument("metrics server", skip_all)]
+pub async fn start(state: Arc<State>) {
     let addr_result = SocketAddr::from_str(&state.config.prometheus_addr);
     if let Err(err) = addr_result {
         error!(error = err.to_string(), "invalid prometheus addr");
@@ -171,7 +184,7 @@ pub async fn start(rw_state: Arc<RwLock<State>>) {
     info!(addr = state.config.prometheus_addr, "metrics listening");
 
     loop {
-        let rw_state = rw_state.clone();
+        let state = state.clone();
 
         let accept_result = listener.accept().await;
         if let Err(err) = accept_result {
@@ -183,7 +196,7 @@ pub async fn start(rw_state: Arc<RwLock<State>>) {
         let io = TokioIo::new(stream);
 
         tokio::task::spawn(async move {
-            let service = service_fn(move |req| routes_match(req, rw_state.clone()));
+            let service = service_fn(move |req| routes_match(req, state.clone()));
 
             if let Err(err) = http1_server::Builder::new()
                 .serve_connection(io, service)

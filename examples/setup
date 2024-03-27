@@ -1,0 +1,22 @@
+#!/bin/bash
+
+kind create cluster
+
+echo "Building operator CRD"
+cargo run --bin=crdgen > env-crd.yaml --manifest-path ../operator/Cargo.toml
+
+kubectl apply -f env-crd.yaml
+
+echo "Building proxy image"
+docker build -t proxy:1.0 -f ../docker/dockerfile.proxy ../
+
+echo "Building operator image"
+docker build -t operator:1.0 -f ../docker/dockerfile.operator ../
+
+echo "Loading proxy image"
+kind load docker-image proxy:1.0
+
+echo "Loading operator image"
+kind load docker-image operator:1.0
+
+kubectl apply -f manifest.yaml
