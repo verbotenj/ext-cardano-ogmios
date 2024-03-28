@@ -5,10 +5,12 @@ metadata:
 spec:
   group: demeter.run
   names:
-    categories: []
+    categories:
+    - demeter-port
     kind: OgmiosPort
     plural: ogmiosports
-    shortNames: []
+    shortNames:
+    - opt
     singular: ogmiosport
   scope: Namespaced
   versions:
@@ -28,6 +30,9 @@ spec:
     - jsonPath: .status.authToken
       name: Auth Token
       type: string
+    - jsonPath: .spec.throughputTier
+      name: Throughput Tier
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -36,11 +41,8 @@ spec:
           spec:
             properties:
               network:
-                enum:
-                - mainnet
-                - preprod
-                - preview
-                - sanchonet
+                type: string
+              throughputTier:
                 type: string
               version:
                 format: uint8
@@ -48,6 +50,7 @@ spec:
                 type: integer
             required:
             - network
+            - throughputTier
             - version
             type: object
           status:
