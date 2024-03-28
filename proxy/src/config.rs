@@ -8,6 +8,7 @@ pub struct Config {
     pub proxy_tiers_poll_interval: Duration,
     pub prometheus_addr: String,
     pub ogmios_port: u16,
+    pub ogmios_dns: String,
     pub ssl_crt_path: PathBuf,
     pub ssl_key_path: PathBuf,
 }
@@ -39,6 +40,7 @@ impl Config {
                 .expect("OGMIOS_PORT must be set")
                 .parse()
                 .expect("OGMIOS_PORT must a number"),
+            ogmios_dns: env::var("OGMIOS_DNS").expect("OGMIOS_DNS must be set"),
         }
     }
 }

@@ -281,7 +281,11 @@ impl ProxyRequest {
         let network = captures.get(2)?.as_str().to_string();
         let version = captures.get(3)?.as_str().to_string();
 
-        let instance = format!("ogmios-{network}-{version}:{}", state.config.ogmios_port);
+        let instance = format!(
+            "ogmios-{network}-{version}.{}:{}",
+            state.config.ogmios_dns, state.config.ogmios_port
+        );
+
         let namespace = state.config.proxy_namespace.clone();
 
         let protocol = get_header(hyper_req, UPGRADE.as_str())
