@@ -1,4 +1,7 @@
-use futures_util::{future, stream::TryStreamExt, StreamExt};
+use futures_util::future::select;
+use futures_util::SinkExt;
+use futures_util::StreamExt;
+use futures_util::TryStreamExt;
 use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::body::Incoming;
 use hyper::client::conn::http1 as http1_client;
@@ -19,7 +22,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::{fs, io};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
+use tokio::pin;
 use tokio_rustls::TlsAcceptor;
 use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
 use tokio_tungstenite::tungstenite::protocol::Role;
@@ -27,12 +30,11 @@ use tokio_tungstenite::{connect_async, WebSocketStream};
 use tracing::{error, info};
 use url::Url;
 
+use crate::limiter::limiter;
 use crate::utils::{full, get_header, ProxyResponse, DMTR_API_KEY};
 use crate::{Consumer, State};
 
-pub async fn start(rw_state: Arc<RwLock<State>>) {
-    let state = rw_state.read().await.clone();
-
+pub async fn start(state: Arc<State>) {
     let addr_result = SocketAddr::from_str(&state.config.proxy_addr);
     if let Err(err) = addr_result {
         error!(error = err.to_string(), "invalid proxy addr");
@@ -57,7 +59,7 @@ pub async fn start(rw_state: Arc<RwLock<State>>) {
     info!(addr = state.config.proxy_addr, "proxy listening");
 
     loop {
-        let rw_state = rw_state.clone();
+        let state = state.clone();
         let accept_result = listener.accept().await;
         if let Err(err) = accept_result {
             error!(error = err.to_string(), "fail to accept client");
@@ -78,7 +80,7 @@ pub async fn start(rw_state: Arc<RwLock<State>>) {
 
             let io = TokioIo::new(tls_stream);
 
-            let service = service_fn(move |req| handle(req, rw_state.clone()));
+            let service = service_fn(move |req| handle(req, state.clone()));
 
             if let Err(err) = Builder::new(TokioExecutor::new())
                 .serve_connection_with_upgrades(io, service)
@@ -92,13 +94,12 @@ pub async fn start(rw_state: Arc<RwLock<State>>) {
 
 async fn handle(
     mut hyper_req: Request<Incoming>,
-    rw_state: Arc<RwLock<State>>,
+    state: Arc<State>,
 ) -> Result<ProxyResponse, hyper::Error> {
     match (hyper_req.method(), hyper_req.uri().path()) {
         (&Method::GET, "/healthz") => handle_healthz().await,
         _ => {
-            let state = rw_state.read().await.clone();
-            let proxy_req_result = ProxyRequest::new(&mut hyper_req, &state);
+            let proxy_req_result = ProxyRequest::new(&mut hyper_req, &state).await;
             if proxy_req_result.is_none() {
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_GATEWAY)
@@ -116,7 +117,7 @@ async fn handle(
 
             let response_result = match proxy_req.protocol {
                 Protocol::Http => handle_http(hyper_req, &proxy_req).await,
-                Protocol::Websocket => handle_websocket(hyper_req, &proxy_req, rw_state).await,
+                Protocol::Websocket => handle_websocket(hyper_req, &proxy_req, state.clone()).await,
             };
 
             match &response_result {
@@ -159,7 +160,7 @@ async fn handle_http(
 async fn handle_websocket(
     mut hyper_req: Request<Incoming>,
     proxy_req: &ProxyRequest,
-    rw_state: Arc<RwLock<State>>,
+    state: Arc<State>,
 ) -> Result<ProxyResponse, hyper::Error> {
     let headers = hyper_req.headers();
     let upgrade = HeaderValue::from_static("Upgrade");
@@ -169,35 +170,61 @@ async fn handle_websocket(
     let version = hyper_req.version();
 
     let proxy_req = proxy_req.clone();
-    let state = rw_state.read().await.clone();
+    let state = state.clone();
+
     tokio::task::spawn(async move {
         match hyper::upgrade::on(&mut hyper_req).await {
             Ok(upgraded) => {
                 let upgraded = TokioIo::new(upgraded);
                 let client_stream =
                     WebSocketStream::from_raw_socket(upgraded, Role::Server, None).await;
-                let (client_outgoing, client_incoming) = client_stream.split();
+                let (client_outgoing, mut client_incoming) = client_stream.split();
 
                 let url =
                     Url::parse(&format!("ws://{}{}", proxy_req.instance, hyper_req.uri())).unwrap();
                 let connection_result = connect_async(url).await;
                 if let Err(err) = connection_result {
-                    error!(error = err.to_string(), "fail to connect to the host");
+                    error!(error = err.to_string(), "fail to connect to the instance");
                     return;
                 }
-                let (host_stream, _) = connection_result.unwrap();
-                let (host_outgoing, host_incoming) = host_stream.split();
+                let (instance_stream, _) = connection_result.unwrap();
+                let (mut instance_outgoing, instance_incoming) = instance_stream.split();
 
-                let client_in = client_incoming
-                    .inspect_ok(|_| {
-                        state.metrics.count_ws_total_frame(&proxy_req);
-                    })
-                    .forward(host_outgoing);
-                let host_in = host_incoming.forward(client_outgoing);
+                state.metrics.inc_ws_total_connection(&proxy_req);
 
-                state.metrics.count_ws_total_connection(&proxy_req);
+                let client_in = async {
+                    loop {
+                        let result = client_incoming.try_next().await;
+                        match result {
+                            Ok(data) => {
+                                if let Some(data) = data {
+                                    limiter(state.clone(), proxy_req.consumer.as_ref().unwrap())
+                                        .await;
+                                    if let Err(err) = instance_outgoing.send(data).await {
+                                        error!(
+                                            error = err.to_string(),
+                                            "fail to send data to instance"
+                                        );
+                                        break;
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                error!(error = err.to_string(), "stream client incoming");
+                                break;
+                            }
+                        }
+                    }
+                };
+                pin!(client_in);
 
-                future::select(client_in, host_in).await;
+                let instance_in = instance_incoming
+                    .inspect_ok(|_| state.metrics.count_ws_total_frame(&proxy_req))
+                    .forward(client_outgoing);
+
+                select(client_in, instance_in).await;
+
+                state.metrics.dec_ws_total_connection(&proxy_req);
             }
             Err(err) => {
                 error!(error = err.to_string(), "upgrade error");
@@ -246,7 +273,7 @@ pub struct ProxyRequest {
     pub protocol: Protocol,
 }
 impl ProxyRequest {
-    pub fn new(hyper_req: &mut Request<Incoming>, state: &State) -> Option<Self> {
+    pub async fn new(hyper_req: &mut Request<Incoming>, state: &State) -> Option<Self> {
         let mut host = get_header(hyper_req, HOST.as_str())?;
         let host_regex = host.clone();
 
@@ -276,7 +303,7 @@ impl ProxyRequest {
         }
 
         let token = get_header(hyper_req, DMTR_API_KEY).unwrap_or_default();
-        let consumer = state.get_auth_token(&network, &version, &token);
+        let consumer = state.get_consumer(&network, &version, &token).await;
 
         Some(Self {
             namespace,

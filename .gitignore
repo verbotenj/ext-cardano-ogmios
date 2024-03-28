@@ -1,2 +1,7 @@
 /target
 env-crd.yaml
+fake-api
+.env*
+cert
+tiers.toml
+env-crd.yaml
