@@ -119,5 +119,15 @@ variable "instances" {
     ogmios_version   = string
     compute_arch     = string
     replicas         = number
+    resources = optional(object({
+      limits = object({
+        cpu    = string
+        memory = string
+      })
+      requests = object({
+        cpu    = string
+        memory = string
+      })
+    }))
   }))
 }
