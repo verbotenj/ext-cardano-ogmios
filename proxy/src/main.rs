@@ -51,7 +51,7 @@ impl State {
     pub fn try_new() -> Result<Self, Box<dyn Error>> {
         let config = Config::new();
         let metrics = Metrics::try_new(Registry::default())?;
-        let host_regex = Regex::new(r"(dmtr_[\w\d-]+)?\.?([\w]+)-v([\d]).+")?;
+        let host_regex = Regex::new(r"(dmtr_[\w\d-]+)?\.?([\w-]+)-v([\d]).+")?;
         let consumers = Default::default();
         let tiers = Default::default();
         let limiter = Default::default();
