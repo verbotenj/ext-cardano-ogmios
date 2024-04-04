@@ -1,8 +1,9 @@
-use notify::{PollWatcher, RecursiveMode, Watcher};
+use notify::{Event, PollWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 use std::{error::Error, fs, sync::Arc, time::Duration};
+use tokio::runtime::{Handle, Runtime};
 use tracing::{error, info, instrument, warn};
 
 use crate::State;
@@ -53,13 +54,22 @@ pub fn start(state: Arc<State>) {
             return;
         }
 
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Event>(1);
 
         let watcher_config = notify::Config::default()
             .with_compare_contents(true)
             .with_poll_interval(state.config.proxy_tiers_poll_interval);
 
-        let watcher_result = PollWatcher::new(tx, watcher_config);
+        let watcher_result = PollWatcher::new(
+            move |res| {
+                if let Ok(event) = res {
+                    runtime_handle()
+                        .block_on(async { tx.send(event).await })
+                        .unwrap();
+                }
+            },
+            watcher_config,
+        );
         if let Err(err) = watcher_result {
             error!(error = err.to_string(), "error to watcher tier");
             return;
@@ -73,17 +83,15 @@ pub fn start(state: Arc<State>) {
             return;
         }
 
-        for result in rx {
-            match result {
-                Ok(_event) => {
-                    if let Err(err) = update_tiers(state.clone()).await {
-                        error!(error = err.to_string(), "error to update tiers");
-                        continue;
-                    }
-
-                    info!("tiers modified");
+        loop {
+            let result = rx.recv().await;
+            if result.is_some() {
+                if let Err(err) = update_tiers(state.clone()).await {
+                    error!(error = err.to_string(), "error to update tiers");
+                    continue;
                 }
-                Err(err) => error!(error = err.to_string(), "watch error"),
+
+                info!("tiers modified");
             }
         }
     });
@@ -109,4 +117,14 @@ async fn update_tiers(state: Arc<State>) -> Result<(), Box<dyn Error>> {
     state.limiter.write().await.clear();
 
     Ok(())
+}
+
+fn runtime_handle() -> Handle {
+    match Handle::try_current() {
+        Ok(h) => h,
+        Err(_) => {
+            let rt = Runtime::new().unwrap();
+            rt.handle().clone()
+        }
+    }
 }
