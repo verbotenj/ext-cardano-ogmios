@@ -1,11 +1,23 @@
 locals {
-  name = "proxy"
+  name = var.name
   role = "proxy"
 
   prometheus_port = 9187
   prometheus_addr = "0.0.0.0:${local.prometheus_port}"
   proxy_port      = 8080
   proxy_addr      = "0.0.0.0:${local.proxy_port}"
+  # proxy_labels = var.environment != null ? { role = local.role, environment = var.environment } : { role = local.role }
+  proxy_labels = var.environment != null ? { role = "${local.role}-${var.environment}" } : { role = local.role }
+}
+
+variable "name" {
+  type    = string
+  default = "proxy"
+}
+
+// blue - green
+variable "environment" {
+  default = null
 }
 
 variable "namespace" {
@@ -55,12 +67,12 @@ variable "extension_name" {
 }
 
 variable "networks" {
-  type = list(string)
-  default = ["mainnet", "preprod", "preview"]
+  type    = list(string)
+  default = ["mainnet", "preprod", "preview", "vector-testnet"]
 }
 
 variable "versions" {
-  type = list(string)
+  type    = list(string)
   default = ["5", "6"]
 }
 

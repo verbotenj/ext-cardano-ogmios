@@ -1,27 +1,21 @@
 resource "kubernetes_deployment_v1" "ogmios_proxy" {
   wait_for_rollout = false
-  depends_on = [ kubernetes_manifest.certificate_cluster_wildcard_tls ]
+  depends_on       = [kubernetes_manifest.certificate_cluster_wildcard_tls]
 
   metadata {
     name      = local.name
     namespace = var.namespace
-    labels = {
-      role = local.role
-    }
+    labels    = local.proxy_labels
   }
   spec {
     replicas = var.replicas
     selector {
-      match_labels = {
-        role = local.role
-      }
+      match_labels = local.proxy_labels
     }
     template {
       metadata {
-        name = local.name
-        labels = {
-          role = local.role
-        }
+        name   = local.name
+        labels = local.proxy_labels
       }
       spec {
         container {
@@ -73,12 +67,12 @@ resource "kubernetes_deployment_v1" "ogmios_proxy" {
           }
 
           env {
-            name = "SSL_CRT_PATH"
+            name  = "SSL_CRT_PATH"
             value = "/certs/tls.crt"
           }
 
           env {
-            name = "SSL_KEY_PATH"
+            name  = "SSL_KEY_PATH"
             value = "/certs/tls.key"
           }
 

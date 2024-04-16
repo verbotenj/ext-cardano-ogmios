@@ -28,9 +28,23 @@ module "ogmios_v1_proxy" {
   depends_on      = [kubernetes_namespace.namespace]
   source          = "./proxy"
   namespace       = var.namespace
-  replicas        = var.proxy_replicas
-  proxy_image_tag = var.proxy_image_tag
+  replicas        = var.proxy_blue_replicas
+  proxy_image_tag = var.proxy_blue_image_tag
   extension_name  = var.extension_name
+  networks        = ["mainnet", "preprod", "preview"]
+  name            = "proxy"
+}
+
+module "ogmios_v1_proxy_green" {
+  depends_on      = [kubernetes_namespace.namespace]
+  source          = "./proxy"
+  namespace       = var.namespace
+  replicas        = var.proxy_green_replicas
+  proxy_image_tag = var.proxy_green_image_tag
+  extension_name  = var.extension_name
+  networks        = ["mainnet", "preprod", "preview", "vector-testnet"]
+  environment     = "green"
+  name            = "proxy-green"
 }
 
 // mainnet

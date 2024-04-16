@@ -15,7 +15,7 @@ variable "extension_name" {
 
 variable "networks" {
   type    = list(string)
-  default = ["mainnet", "preprod", "preview"]
+  default = ["mainnet", "preprod", "preview", "vector-testnet"]
 }
 
 variable "versions" {
@@ -77,14 +77,33 @@ variable "operator_resources" {
 }
 // proxy
 
-variable "proxy_image_tag" {
+# variable "proxy_image_tag" {
+#   type = string
+# }
+
+# variable "proxy_replicas" {
+#   type    = number
+#   default = 1
+# }
+
+variable "proxy_green_image_tag" {
   type = string
 }
 
-variable "proxy_replicas" {
+variable "proxy_green_replicas" {
   type    = number
   default = 1
 }
+
+variable "proxy_blue_image_tag" {
+  type = string
+}
+
+variable "proxy_blue_replicas" {
+  type    = number
+  default = 1
+}
+
 
 variable "proxy_resources" {
   type = object({

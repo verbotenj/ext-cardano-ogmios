@@ -6,8 +6,8 @@ variable "network" {
   description = "cardano node network"
 
   validation {
-    condition     = contains(["mainnet", "preprod", "preview"], var.network)
-    error_message = "Invalid network. Allowed values are mainnet, preprod and preview."
+    condition     = contains(["mainnet", "preprod", "preview", "vector-testnet"], var.network)
+    error_message = "Invalid network. Allowed values are mainnet, preprod, preview and vector-testnet."
   }
 }
 

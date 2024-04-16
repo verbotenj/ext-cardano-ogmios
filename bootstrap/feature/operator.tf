@@ -68,7 +68,7 @@ resource "kubernetes_deployment_v1" "ogmios_operator" {
 
           env {
             name  = "DCU_PER_FRAME"
-            value = "mainnet=${var.dcu_per_frame["mainnet"]},preprod=${var.dcu_per_frame["preprod"]},preview=${var.dcu_per_frame["preview"]}"
+            value = "mainnet=${var.dcu_per_frame["mainnet"]},preprod=${var.dcu_per_frame["preprod"]},preview=${var.dcu_per_frame["preview"]},vector-testnet=${var.dcu_per_frame["vector-testnet"]}"
           }
 
           env {

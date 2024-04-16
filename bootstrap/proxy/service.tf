@@ -13,9 +13,7 @@ resource "kubernetes_service_v1" "proxy_service" {
 
   spec {
     load_balancer_class = "service.k8s.aws/nlb"
-    selector = {
-      role = local.role
-    }
+    selector            = local.proxy_labels
 
     port {
       name        = "proxy"
