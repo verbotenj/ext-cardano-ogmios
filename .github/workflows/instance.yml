@@ -1,0 +1,53 @@
+name: Blockfrost instance
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - "main"
+    paths:
+      - ".github/workflows/instance.yml"
+      - "docker/ogmios-5/*"
+      - "docker/ogmios-6/*"
+
+jobs:
+  build-images:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - context: docker/ogmios-5
+            file: docker/ogmios-5/Dockerfile
+            endpoint: demeter-run/ext-cardano-ogmios-instance
+            platforms: linux/amd64
+          - context: docker/ogmios-6
+            file: docker/ogmios-6/Dockerfile
+            endpoint: demeter-run/ext-cardano-ogmios-instance-6
+            platforms: linux/amd64,linux/arm64
+
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+    
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platforms }}
+          push: true
+          tags: ghcr.io/${{ matrix.endpoint }},ghcr.io/${{ matrix.endpoint }}:${{ github.sha }}
