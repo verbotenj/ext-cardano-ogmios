@@ -126,7 +126,10 @@ async fn handle(
                         .metrics
                         .count_http_total_request(&proxy_req, response.status());
                 }
-                Err(_) => todo!("send error to prometheus"),
+                Err(err) => {
+                    error!(error = err.to_string(), "Failed to handle request");
+                    todo!("send error to prometheus");
+                }
             };
 
             response_result
