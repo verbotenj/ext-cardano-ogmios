@@ -196,20 +196,16 @@ async fn handle_websocket(
                 state.metrics.inc_ws_total_connection(&proxy_req);
 
                 let client_in = async {
-                    loop {
-                        let result = client_incoming.try_next().await;
+                    while let Some(result) = client_incoming.next().await {
                         match result {
                             Ok(data) => {
-                                if let Some(data) = data {
-                                    limiter(state.clone(), proxy_req.consumer.as_ref().unwrap())
-                                        .await;
-                                    if let Err(err) = instance_outgoing.send(data).await {
-                                        error!(
-                                            error = err.to_string(),
-                                            "fail to send data to instance"
-                                        );
-                                        break;
-                                    }
+                                limiter(state.clone(), proxy_req.consumer.as_ref().unwrap()).await;
+                                if let Err(err) = instance_outgoing.send(data).await {
+                                    error!(
+                                        error = err.to_string(),
+                                        "fail to send data to instance"
+                                    );
+                                    break;
                                 }
                             }
                             Err(err) => {

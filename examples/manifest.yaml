@@ -205,8 +205,8 @@ data:
     [[tiers]]
     name = "0"
     [[tiers.rates]]
-    interval = "1s"
-    limit = 10
+    interval = "1m"
+    limit = 1
 
     [[tiers]]
     name = "1"
@@ -247,6 +247,8 @@ spec:
               value: "0.0.0.0:9187"
             - name: OGMIOS_PORT
               value: "80"
+            - name: OGMIOS_DNS
+              value: "prj-mainnet-test.svc.cluster.local"
             - name: SSL_CRT_PATH
               value: "/ogmios-proxy/localhost.crt"
             - name: SSL_KEY_PATH
