@@ -18,6 +18,7 @@ async fn add_limiter(state: &State, consumer: &Consumer, tier: &Tier) {
                 RateLimiter::builder()
                     .initial(r.limit)
                     .interval(r.interval)
+                    .refill(r.limit)
                     .build(),
             )
         })
