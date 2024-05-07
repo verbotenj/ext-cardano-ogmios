@@ -20,9 +20,9 @@ impl Display for LimiterError {
 }
 impl Error for LimiterError {}
 
-async fn has_limiter(state: &State, consumer_key: &String) -> bool {
+async fn has_limiter(state: &State, consumer: &Consumer) -> bool {
     let rate_limiter_map = state.limiter.read().await;
-    rate_limiter_map.get(consumer_key).is_some()
+    rate_limiter_map.get(&consumer.key).is_some()
 }
 
 async fn add_limiter(state: &State, consumer: &Consumer, tier: &Tier) {
@@ -47,23 +47,23 @@ async fn add_limiter(state: &State, consumer: &Consumer, tier: &Tier) {
         .insert(consumer.key.clone(), rates);
 }
 
-pub async fn limiter(state: Arc<State>, consumer_key: String) -> Result<(), LimiterError> {
-    if !has_limiter(&state, &consumer_key).await {
+pub async fn limiter(state: Arc<State>, consumer: &Consumer) -> Result<(), LimiterError> {
+    if !has_limiter(&state, consumer).await {
         let consumers = state.consumers.read().await.clone();
-        let consumer = match consumers.get(&consumer_key) {
+        let refreshed_consumer = match consumers.get(&consumer.hash_key) {
             Some(consumer) => consumer,
             None => return Err(LimiterError::PortDeleted),
         };
         let tiers = state.tiers.read().await.clone();
-        let tier = match tiers.get(&consumer.tier) {
+        let tier = match tiers.get(&refreshed_consumer.tier) {
             Some(tier) => tier,
             None => return Err(LimiterError::InvalidTier),
         };
-        add_limiter(&state, consumer, tier).await;
+        add_limiter(&state, refreshed_consumer, tier).await;
     }
 
     let rate_limiter_map = state.limiter.read().await.clone();
-    let rates = rate_limiter_map.get(&consumer_key).unwrap();
+    let rates = rate_limiter_map.get(&consumer.key).unwrap();
 
     join_all(rates.iter().map(|r| async { r.acquire_one().await })).await;
     Ok(())

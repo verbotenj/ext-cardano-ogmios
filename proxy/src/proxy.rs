@@ -199,9 +199,11 @@ async fn handle_websocket(
                     while let Some(result) = client_incoming.next().await {
                         match result {
                             Ok(data) => {
-                                if let Err(err) =
-                                    limiter(state.clone(), proxy_req.consumer.clone().unwrap().key)
-                                        .await
+                                if let Err(err) = limiter(
+                                    state.clone(),
+                                    proxy_req.consumer.clone().as_ref().unwrap(),
+                                )
+                                .await
                                 {
                                     error!(error = err.to_string(), "Failed to run limiter");
                                     break;
