@@ -2,6 +2,7 @@ use config::Config;
 use dotenv::dotenv;
 use leaky_bucket::RateLimiter;
 use metrics::Metrics;
+use operator::{kube::ResourceExt, OgmiosPort};
 use prometheus::Registry;
 use regex::Regex;
 use std::collections::HashMap;
@@ -79,19 +80,29 @@ pub struct Consumer {
     port_name: String,
     tier: String,
     key: String,
+    hash_key: String,
 }
-impl Consumer {
-    pub fn new(namespace: String, port_name: String, tier: String, key: String) -> Self {
+impl Display for Consumer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.namespace, self.port_name)
+    }
+}
+impl From<&OgmiosPort> for Consumer {
+    fn from(value: &OgmiosPort) -> Self {
+        let network = value.spec.network.to_string();
+        let version = value.spec.version;
+        let tier = value.spec.throughput_tier.to_string();
+        let key = value.status.as_ref().unwrap().auth_token.clone();
+        let namespace = value.metadata.namespace.as_ref().unwrap().clone();
+        let port_name = value.name_any();
+
+        let hash_key = format!("{}.{}.{}", network, version, key);
         Self {
             namespace,
             port_name,
             tier,
             key,
+            hash_key,
         }
-    }
-}
-impl Display for Consumer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.namespace, self.port_name)
     }
 }
