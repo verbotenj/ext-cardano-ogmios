@@ -57,6 +57,11 @@ resource "kubernetes_deployment_v1" "ogmios_proxy" {
           }
 
           env {
+            name  = "PROXY_TIERS_PATH"
+            value = "/configs/tiers.toml"
+          }
+
+          env {
             name  = "PROMETHEUS_ADDR"
             value = local.prometheus_addr
           }
@@ -80,12 +85,24 @@ resource "kubernetes_deployment_v1" "ogmios_proxy" {
             mount_path = "/certs"
             name       = "certs"
           }
+
+          volume_mount {
+            mount_path = "/configs"
+            name       = "configs"
+          }
         }
 
         volume {
           name = "certs"
           secret {
             secret_name = local.cert_secret_name
+          }
+        }
+
+        volume {
+          name = "configs"
+          config_map {
+            name = kubernetes_config_map.proxy.metadata.0.name
           }
         }
 

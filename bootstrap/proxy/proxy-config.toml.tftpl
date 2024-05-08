@@ -1,0 +1,9 @@
+%{ for tier in tiers ~}
+[[tiers]]
+name = "${tier.name}"
+%{ for rate in tier.rates ~}
+[[tiers.rates]]
+interval = "${rate.interval}"
+limit = ${rate.limit}
+%{ endfor ~}
+%{ endfor ~}
