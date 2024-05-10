@@ -2,6 +2,12 @@ locals {
   name           = "ogmios-${var.network}-${var.ogmios_version}-${var.salt}"
   image          = var.ogmios_image
   container_port = 1337
+  default_args = [
+    "--node-socket", "/ipc/node.socket",
+    "--node-config", "/config/config.json",
+    "--host", "0.0.0.0"
+  ]
+  container_args = var.ogmios_version == "5" ? local.default_args : concat(local.default_args, ["--include-cbor"])
 }
 
 resource "kubernetes_deployment_v1" "ogmios" {
@@ -48,11 +54,7 @@ resource "kubernetes_deployment_v1" "ogmios" {
           name              = "main"
           image             = local.image
           image_pull_policy = "IfNotPresent"
-          args = [
-            "--node-socket", "/ipc/node.socket",
-            "--node-config", "/config/config.json",
-            "--host", "0.0.0.0"
-          ]
+          args = local.container_args
 
           resources {
             limits = {
