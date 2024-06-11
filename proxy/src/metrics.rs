@@ -25,7 +25,7 @@ impl Metrics {
     pub fn try_new(registry: Registry) -> Result<Self, Box<dyn Error>> {
         let ws_total_frame = IntCounterVec::new(
             opts!("ogmios_proxy_ws_total_frame", "total of websocket frame",),
-            &["namespace", "instance", "route", "consumer"],
+            &["namespace", "instance", "route", "consumer", "tier"],
         )
         .unwrap();
 
@@ -34,7 +34,7 @@ impl Metrics {
                 "ogmios_proxy_ws_total_connection",
                 "total of websocket connection",
             ),
-            &["namespace", "instance", "route", "consumer"],
+            &["namespace", "instance", "route", "consumer", "tier"],
         )
         .unwrap();
 
@@ -47,6 +47,7 @@ impl Metrics {
                 "status_code",
                 "protocol",
                 "consumer",
+                "tier",
             ],
         )
         .unwrap();
@@ -72,14 +73,15 @@ impl Metrics {
             .consumer
             .as_ref()
             .unwrap_or(&Consumer::default())
-            .to_string();
+            .clone();
 
         self.ws_total_frame
             .with_label_values(&[
                 &proxy_req.namespace,
                 &proxy_req.instance,
                 &proxy_req.host,
-                &consumer,
+                &consumer.to_string(),
+                &consumer.tier,
             ])
             .inc()
     }
@@ -89,14 +91,15 @@ impl Metrics {
             .consumer
             .as_ref()
             .unwrap_or(&Consumer::default())
-            .to_string();
+            .clone();
 
         self.ws_total_connection
             .with_label_values(&[
                 &proxy_req.namespace,
                 &proxy_req.instance,
                 &proxy_req.host,
-                &consumer,
+                &consumer.to_string(),
+                &consumer.tier,
             ])
             .inc()
     }
@@ -106,14 +109,15 @@ impl Metrics {
             .consumer
             .as_ref()
             .unwrap_or(&Consumer::default())
-            .to_string();
+            .clone();
 
         self.ws_total_connection
             .with_label_values(&[
                 &proxy_req.namespace,
                 &proxy_req.instance,
                 &proxy_req.host,
-                &consumer,
+                &consumer.to_string(),
+                &consumer.tier,
             ])
             .dec()
     }
@@ -123,7 +127,7 @@ impl Metrics {
             .consumer
             .as_ref()
             .unwrap_or(&Consumer::default())
-            .to_string();
+            .clone();
 
         self.http_total_request
             .with_label_values(&[
@@ -132,7 +136,8 @@ impl Metrics {
                 &proxy_req.host,
                 &status_code.as_u16().to_string(),
                 &proxy_req.protocol.to_string(),
-                &consumer,
+                &consumer.to_string(),
+                &consumer.tier,
             ])
             .inc()
     }

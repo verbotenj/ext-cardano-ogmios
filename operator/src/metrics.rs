@@ -12,6 +12,7 @@ use crate::{get_config, Error, OgmiosPort, State};
 #[derive(Clone)]
 pub struct Metrics {
     pub dcu: IntCounterVec,
+    pub usage: IntCounterVec,
     pub reconcile_failures: IntCounterVec,
     pub metrics_failures: IntCounterVec,
 }
@@ -21,6 +22,12 @@ impl Default for Metrics {
         let dcu = IntCounterVec::new(
             opts!("dmtr_consumed_dcus", "quantity of dcu consumed",),
             &["project", "service", "service_type", "tenancy"],
+        )
+        .unwrap();
+
+        let usage = IntCounterVec::new(
+            opts!("usage", "Feature usage",),
+            &["feature", "project", "resource_name", "tier"],
         )
         .unwrap();
 
@@ -44,6 +51,7 @@ impl Default for Metrics {
 
         Metrics {
             reconcile_failures,
+            usage,
             dcu,
             metrics_failures,
         }
@@ -55,6 +63,7 @@ impl Metrics {
         registry.register(Box::new(self.dcu.clone()))?;
         registry.register(Box::new(self.metrics_failures.clone()))?;
         registry.register(Box::new(self.reconcile_failures.clone()))?;
+        registry.register(Box::new(self.usage.clone()))?;
 
         Ok(self)
     }
@@ -82,6 +91,15 @@ impl Metrics {
             .with_label_values(&[project, &service, &service_type, tenancy])
             .inc_by(dcu);
     }
+
+    pub fn count_usage(&self, project: &str, resource_name: &str, tier: &str, value: f64) {
+        let feature = &OgmiosPort::kind(&());
+        let value: u64 = value.ceil() as u64;
+
+        self.usage
+            .with_label_values(&[feature, project, resource_name, tier])
+            .inc_by(value);
+    }
 }
 
 #[instrument("metrics collector run", skip_all)]
@@ -91,7 +109,7 @@ pub async fn run_metrics_collector(state: Arc<State>) {
 
         let config = get_config();
         let client = reqwest::Client::builder().build().unwrap();
-        let project_regex = Regex::new(r"prj-(.+)\..+").unwrap();
+        let project_regex = Regex::new(r"prj-(.+)\.(.+)$").unwrap();
         let network_regex = Regex::new(r"([\w-]+)-.+").unwrap();
         let mut last_execution = Utc::now();
 
@@ -104,7 +122,7 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             last_execution = end;
 
             let query = format!(
-                "sum by (consumer, route) (increase(ogmios_proxy_ws_total_frame[{start}s] @ {}))",
+                "sum by (consumer, route, tier) (increase(ogmios_proxy_ws_total_frame[{start}s] @ {}))",
                 end.timestamp_millis() / 1000
             );
 
@@ -148,6 +166,7 @@ pub async fn run_metrics_collector(state: Arc<State>) {
                 }
                 let project_captures = project_captures.unwrap();
                 let project = project_captures.get(1).unwrap().as_str();
+                let resource_name = project_captures.get(2).unwrap().as_str();
 
                 let route = result.metric.route.unwrap();
                 let network_captures = network_regex.captures(&route);
@@ -171,6 +190,12 @@ pub async fn run_metrics_collector(state: Arc<State>) {
 
                 let dcu = result.value * dcu_per_frame;
                 state.metrics.count_dcu_consumed(project, network, dcu);
+
+                if let Some(tier) = result.metric.tier {
+                    state
+                        .metrics
+                        .count_usage(project, resource_name, &tier, result.value);
+                }
             }
         }
     });
@@ -180,6 +205,7 @@ pub async fn run_metrics_collector(state: Arc<State>) {
 struct PrometheusDataResultMetric {
     consumer: Option<String>,
     route: Option<String>,
+    tier: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
