@@ -50,7 +50,7 @@ async fn add_limiter(state: &State, consumer: &Consumer, tier: &Tier) {
 pub async fn limiter(state: Arc<State>, consumer: &Consumer) -> Result<(), LimiterError> {
     if !has_limiter(&state, consumer).await {
         let consumers = state.consumers.read().await.clone();
-        let refreshed_consumer = match consumers.get(&consumer.hash_key) {
+        let refreshed_consumer = match consumers.get(&consumer.key) {
             Some(consumer) => consumer,
             None => return Err(LimiterError::PortDeleted),
         };

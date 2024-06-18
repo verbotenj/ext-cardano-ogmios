@@ -33,7 +33,7 @@ pub fn start(state: Arc<State>) {
                         .iter()
                         .map(|crd| {
                             let consumer = Consumer::from(crd);
-                            (consumer.hash_key.clone(), consumer)
+                            (consumer.key.clone(), consumer)
                         })
                         .collect();
                     *state.consumers.write().await = consumers;
@@ -52,7 +52,7 @@ pub fn start(state: Arc<State>) {
                             .consumers
                             .write()
                             .await
-                            .insert(consumer.hash_key.clone(), consumer);
+                            .insert(consumer.key.clone(), consumer);
                     }
                     None => {
                         // New ports are created without status. When the status is added, a new
@@ -67,7 +67,7 @@ pub fn start(state: Arc<State>) {
                         crd.name_any()
                     );
                     let consumer = Consumer::from(&crd);
-                    state.consumers.write().await.remove(&consumer.hash_key);
+                    state.consumers.write().await.remove(&consumer.key);
                     state.limiter.write().await.remove(&consumer.key);
                 }
                 // Empty response from stream. Should never happen.

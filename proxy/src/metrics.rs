@@ -11,7 +11,7 @@ use tracing::{error, info, instrument};
 
 use crate::proxy::ProxyRequest;
 use crate::utils::{full, ProxyResponse};
-use crate::{Consumer, State};
+use crate::State;
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -69,66 +69,42 @@ impl Metrics {
     }
 
     pub fn count_ws_total_frame(&self, proxy_req: &ProxyRequest) {
-        let consumer = proxy_req
-            .consumer
-            .as_ref()
-            .unwrap_or(&Consumer::default())
-            .clone();
-
         self.ws_total_frame
             .with_label_values(&[
                 &proxy_req.namespace,
                 &proxy_req.instance,
                 &proxy_req.host,
-                &consumer.to_string(),
-                &consumer.tier,
+                &proxy_req.consumer.to_string(),
+                &proxy_req.consumer.tier,
             ])
             .inc()
     }
 
     pub fn inc_ws_total_connection(&self, proxy_req: &ProxyRequest) {
-        let consumer = proxy_req
-            .consumer
-            .as_ref()
-            .unwrap_or(&Consumer::default())
-            .clone();
-
         self.ws_total_connection
             .with_label_values(&[
                 &proxy_req.namespace,
                 &proxy_req.instance,
                 &proxy_req.host,
-                &consumer.to_string(),
-                &consumer.tier,
+                &proxy_req.consumer.to_string(),
+                &proxy_req.consumer.tier,
             ])
             .inc()
     }
 
     pub fn dec_ws_total_connection(&self, proxy_req: &ProxyRequest) {
-        let consumer = proxy_req
-            .consumer
-            .as_ref()
-            .unwrap_or(&Consumer::default())
-            .clone();
-
         self.ws_total_connection
             .with_label_values(&[
                 &proxy_req.namespace,
                 &proxy_req.instance,
                 &proxy_req.host,
-                &consumer.to_string(),
-                &consumer.tier,
+                &proxy_req.consumer.to_string(),
+                &proxy_req.consumer.tier,
             ])
             .dec()
     }
 
     pub fn count_http_total_request(&self, proxy_req: &ProxyRequest, status_code: StatusCode) {
-        let consumer = proxy_req
-            .consumer
-            .as_ref()
-            .unwrap_or(&Consumer::default())
-            .clone();
-
         self.http_total_request
             .with_label_values(&[
                 &proxy_req.namespace,
@@ -136,8 +112,8 @@ impl Metrics {
                 &proxy_req.host,
                 &status_code.as_u16().to_string(),
                 &proxy_req.protocol.to_string(),
-                &consumer.to_string(),
-                &consumer.tier,
+                &proxy_req.consumer.to_string(),
+                &proxy_req.consumer.tier,
             ])
             .inc()
     }

@@ -102,19 +102,12 @@ async fn handle(
             let proxy_req_result = ProxyRequest::new(&mut hyper_req, &state).await;
             if proxy_req_result.is_none() {
                 return Ok(Response::builder()
-                    .status(StatusCode::BAD_GATEWAY)
-                    .body(full("Invalid hostname"))
-                    .unwrap());
-            }
-
-            let proxy_req = proxy_req_result.unwrap();
-            if proxy_req.consumer.is_none() {
-                return Ok(Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .body(full("Unauthorized"))
                     .unwrap());
             }
 
+            let proxy_req = proxy_req_result.unwrap();
             let response_result = match proxy_req.protocol {
                 Protocol::Http => handle_http(hyper_req, &proxy_req).await,
                 Protocol::Websocket => handle_websocket(hyper_req, &proxy_req, state.clone()).await,
@@ -199,11 +192,7 @@ async fn handle_websocket(
                     while let Some(result) = client_incoming.next().await {
                         match result {
                             Ok(data) => {
-                                if let Err(err) = limiter(
-                                    state.clone(),
-                                    proxy_req.consumer.clone().as_ref().unwrap(),
-                                )
-                                .await
+                                if let Err(err) = limiter(state.clone(), &proxy_req.consumer).await
                                 {
                                     error!(error = err.to_string(), "Failed to run limiter");
                                     break;
@@ -276,7 +265,7 @@ pub struct ProxyRequest {
     pub namespace: String,
     pub host: String,
     pub instance: String,
-    pub consumer: Option<Consumer>,
+    pub consumer: Consumer,
     pub protocol: Protocol,
 }
 impl ProxyRequest {
@@ -285,13 +274,6 @@ impl ProxyRequest {
         let host_regex = host.clone();
 
         let captures = state.host_regex.captures(&host_regex)?;
-        let network = captures.get(2)?.as_str().to_string();
-        let version = captures.get(3)?.as_str().to_string();
-
-        let instance = format!(
-            "ogmios-{network}-{version}.{}:{}",
-            state.config.ogmios_dns, state.config.ogmios_port
-        );
 
         let namespace = state.config.proxy_namespace.clone();
 
@@ -314,7 +296,11 @@ impl ProxyRequest {
         }
 
         let token = get_header(hyper_req, DMTR_API_KEY).unwrap_or_default();
-        let consumer = state.get_consumer(&network, &version, &token).await;
+        let consumer = state.get_consumer(&token).await?;
+        let instance = format!(
+            "ogmios-{}-{}.{}:{}",
+            consumer.network, consumer.version, state.config.ogmios_dns, state.config.ogmios_port
+        );
 
         Some(Self {
             namespace,
