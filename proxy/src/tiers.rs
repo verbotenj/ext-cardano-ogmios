@@ -12,6 +12,7 @@ use crate::State;
 pub struct Tier {
     pub name: String,
     pub rates: Vec<TierRate>,
+    pub max_connections: usize,
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct TierRate {

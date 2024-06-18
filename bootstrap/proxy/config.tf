@@ -1,54 +1,42 @@
 locals {
   tiers = [
     {
-      "name" = "0",
+      "name"            = "0",
+      "max_connections" = 2
       "rates" = [
         {
           "interval" = "1m",
-          "limit"    = floor(60 / var.replicas)
-        },
-        {
-          "interval" = "1d",
-          "limit"    = floor(60 * 60 * 24 / var.replicas)
+          "limit"    = 500
         }
       ]
     },
     {
-      "name" = "1",
+      "name"            = "1",
+      "max_connections" = 5
       "rates" = [
         {
           "interval" = "1m",
-          "limit"    = floor(300 / var.replicas)
-        },
-        {
-          "interval" = "1d",
-          "limit"    = floor(300 * 60 * 24 / var.replicas)
+          "limit"    = 500
         }
       ]
     },
     {
-      "name" = "2",
+      "name"            = "2",
+      "max_connections" = 250
       "rates" = [
         {
           "interval" = "1m",
-          "limit"    = floor(2400 / var.replicas)
-        },
-        {
-          "interval" = "1d",
-          "limit"    = floor(2400 * 60 * 24 / var.replicas)
+          "limit"    = 500
         }
       ]
     },
     {
-      "name" = "3",
+      "name"            = "3",
+      "max_connections" = 250
       "rates" = [
         {
           "interval" = "1m",
-          "limit"    = floor(4800 / var.replicas)
-        },
-        {
-          "interval" = "1d",
-          "limit"    = floor(4800 * 60 * 24 / var.replicas)
+          "limit"    = 500
         }
       ]
     }

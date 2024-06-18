@@ -110,7 +110,29 @@ async fn handle(
             let proxy_req = proxy_req_result.unwrap();
             let response_result = match proxy_req.protocol {
                 Protocol::Http => handle_http(hyper_req, &proxy_req).await,
-                Protocol::Websocket => handle_websocket(hyper_req, &proxy_req, state.clone()).await,
+                Protocol::Websocket => {
+                    // Before handling the websocket connection, check if consumer has available
+                    // connections.
+                    let tiers = state.tiers.read().await.clone();
+                    match tiers.get(&proxy_req.consumer.tier) {
+                        Some(tier) => {
+                            if proxy_req.consumer.active_connections >= tier.max_connections {
+                                Ok(Response::builder()
+                                    .status(StatusCode::TOO_MANY_REQUESTS)
+                                    .body(full("Connection limit exceeded"))
+                                    .unwrap())
+                            } else {
+                                handle_websocket(hyper_req, &proxy_req, state.clone()).await
+                            }
+                        }
+                        None => Ok(Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(full(
+                                "Invalid tier value. Contact support team for more information.",
+                            ))
+                            .unwrap()),
+                    }
+                }
             };
 
             match &response_result {
@@ -187,6 +209,16 @@ async fn handle_websocket(
                 let (mut instance_outgoing, instance_incoming) = instance_stream.split();
 
                 state.metrics.inc_ws_total_connection(&proxy_req);
+                proxy_req.consumer.inc_connections(state.clone()).await;
+
+                let active_connections = proxy_req
+                    .consumer
+                    .get_active_connections(state.clone())
+                    .await;
+                info!(
+                    consumer = proxy_req.consumer.to_string(),
+                    active_connections, "client connected"
+                );
 
                 let client_in = async {
                     while let Some(result) = client_incoming.next().await {
@@ -194,7 +226,7 @@ async fn handle_websocket(
                             Ok(data) => {
                                 if let Err(err) = limiter(state.clone(), &proxy_req.consumer).await
                                 {
-                                    error!(error = err.to_string(), "Failed to run limiter");
+                                    error!(error = err.to_string(), "Failed to run limiter.");
                                     break;
                                 };
                                 if let Err(err) = instance_outgoing.send(data).await {
@@ -221,6 +253,16 @@ async fn handle_websocket(
                 select(client_in, instance_in).await;
 
                 state.metrics.dec_ws_total_connection(&proxy_req);
+                proxy_req.consumer.dec_connections(state.clone()).await;
+
+                let active_connections = proxy_req
+                    .consumer
+                    .get_active_connections(state.clone())
+                    .await;
+                info!(
+                    consumer = proxy_req.consumer.to_string(),
+                    active_connections, "client disconnected"
+                );
             }
             Err(err) => {
                 error!(error = err.to_string(), "upgrade error");
