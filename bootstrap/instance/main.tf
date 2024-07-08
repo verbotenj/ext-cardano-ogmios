@@ -25,11 +25,6 @@ variable "node_private_dns" {
 
 variable "network" {
   type = string
-
-  validation {
-    condition     = contains(["mainnet", "preprod", "preview", "vector-testnet"], var.network)
-    error_message = "Invalid network. Allowed values are mainnet, preprod, preview and vector-testnet."
-  }
 }
 
 variable "replicas" {

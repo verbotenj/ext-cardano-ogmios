@@ -72,6 +72,11 @@ resource "kubernetes_deployment_v1" "ogmios_proxy" {
           }
 
           env {
+            name  = "OGMIOS_DNS"
+            value = "ext-ogmios-m1.svc.cluster.local"
+          }
+
+          env {
             name  = "SSL_CRT_PATH"
             value = "/certs/tls.crt"
           }

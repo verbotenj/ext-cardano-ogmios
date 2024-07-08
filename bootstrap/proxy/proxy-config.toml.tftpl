@@ -1,6 +1,7 @@
 %{ for tier in tiers ~}
 [[tiers]]
 name = "${tier.name}"
+max_connections = ${tier.max_connections}
 %{ for rate in tier.rates ~}
 [[tiers.rates]]
 interval = "${rate.interval}"

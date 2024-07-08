@@ -25,6 +25,14 @@ resource "kubernetes_deployment_v1" "ogmios" {
   }
   spec {
     replicas = var.replicas
+
+    strategy {
+      rolling_update {
+        max_surge       = 2
+        max_unavailable = 0
+      }
+    }
+
     selector {
       match_labels = {
         "role"                               = "instance"
@@ -81,6 +89,19 @@ resource "kubernetes_deployment_v1" "ogmios" {
           volume_mount {
             name       = "node-config"
             mount_path = "/config"
+          }
+
+          liveness_probe {
+            http_get {
+              path   = "/health"
+              port   = "api"
+              scheme = "HTTP"
+            }
+            initial_delay_seconds = 60
+            period_seconds        = 30
+            timeout_seconds       = 5
+            success_threshold     = 1
+            failure_threshold     = 2
           }
         }
 

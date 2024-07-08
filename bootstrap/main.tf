@@ -31,7 +31,7 @@ module "ogmios_v1_proxy" {
   replicas        = var.proxy_blue_replicas
   proxy_image_tag = var.proxy_blue_image_tag
   extension_name  = var.extension_name
-  networks        = ["mainnet", "preprod", "preview"]
+  networks        = var.networks
   name            = "proxy"
 }
 
