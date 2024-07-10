@@ -14,7 +14,7 @@ pub struct Config {
     pub dns_zone: String,
     pub extension_name: String,
     pub api_key_salt: String,
-    pub dcu_per_frame: HashMap<String, f64>,
+    pub dcu_per_second: HashMap<String, f64>,
     pub metrics_delay: Duration,
     pub prometheus_url: String,
 }
@@ -24,7 +24,9 @@ impl Config {
         let dns_zone = env::var("DNS_ZONE").unwrap_or("demeter.run".into());
         let extension_name = env::var("EXTENSION_NAME").unwrap_or("ogmios-m1".into());
         let api_key_salt = env::var("API_KEY_SALT").unwrap_or("ogmios-salt".into());
-        let dcu_per_frame = env::var("DCU_PER_FRAME")
+
+        // This will be deprecated soon. Naming is like this for compatibility
+        let dcu_per_second = env::var("DCU_PER_FRAME")
             .expect("DCU_PER_FRAME must be set")
             .split(',')
             .map(|pair| {
@@ -49,7 +51,7 @@ impl Config {
             dns_zone,
             extension_name,
             api_key_salt,
-            dcu_per_frame,
+            dcu_per_second,
             metrics_delay,
             prometheus_url,
         }

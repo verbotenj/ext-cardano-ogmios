@@ -117,29 +117,30 @@ pub async fn run_metrics_collector(state: Arc<State>) {
             tokio::time::sleep(config.metrics_delay).await;
 
             let end = Utc::now();
-            let start = (end - last_execution).num_seconds();
+            let interval = (end - last_execution).num_seconds();
 
             last_execution = end;
 
             let query = format!(
-                "sum by (consumer, route, tier) (increase(ogmios_proxy_ws_total_frame[{start}s] @ {}))",
+                "sum by (consumer, route, tier) (avg_over_time(ogmios_proxy_total_connections[{interval}s] @ {}))",
                 end.timestamp_millis() / 1000
             );
 
-            let result = client
+            let response = match client
                 .get(format!("{}/query?query={query}", config.prometheus_url))
                 .send()
-                .await;
+                .await
+            {
+                Ok(response) => response,
+                Err(err) => {
+                    error!(error = err.to_string(), "error to make prometheus request");
+                    state
+                        .metrics
+                        .metrics_failure(&Error::HttpError(err.to_string()));
+                    continue;
+                }
+            };
 
-            if let Err(err) = result {
-                error!(error = err.to_string(), "error to make prometheus request");
-                state
-                    .metrics
-                    .metrics_failure(&Error::HttpError(err.to_string()));
-                continue;
-            }
-
-            let response = result.unwrap();
             let status = response.status();
             if status.is_client_error() || status.is_server_error() {
                 error!(status = status.to_string(), "request status code fail");
@@ -176,25 +177,27 @@ pub async fn run_metrics_collector(state: Arc<State>) {
                 let network_captures = network_captures.unwrap();
                 let network = network_captures.get(1).unwrap().as_str();
 
-                let dcu_per_frame = config.dcu_per_frame.get(network);
-                if dcu_per_frame.is_none() {
+                let dcu_per_second = config.dcu_per_second.get(network);
+                if dcu_per_second.is_none() {
                     let error = Error::ConfigError(format!(
-                        "dcu_per_frame not configured to {} network",
+                        "dcu_per_second not configured to {} network",
                         network
                     ));
                     error!(error = error.to_string());
                     state.metrics.metrics_failure(&error);
                     continue;
                 }
-                let dcu_per_frame = dcu_per_frame.unwrap();
 
-                let dcu = result.value * dcu_per_frame;
+                let dcu_per_second = dcu_per_second.unwrap();
+                let total_exec_time = result.value * (interval as f64);
+
+                let dcu = total_exec_time * dcu_per_second;
+
                 state.metrics.count_dcu_consumed(project, network, dcu);
-
                 if let Some(tier) = result.metric.tier {
                     state
                         .metrics
-                        .count_usage(project, resource_name, &tier, result.value);
+                        .count_usage(project, resource_name, &tier, total_exec_time);
                 }
             }
         }

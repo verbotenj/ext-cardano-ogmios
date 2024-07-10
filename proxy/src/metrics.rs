@@ -31,7 +31,7 @@ impl Metrics {
 
         let ws_total_connection = IntGaugeVec::new(
             opts!(
-                "ogmios_proxy_ws_total_connection",
+                "ogmios_proxy_total_connections",
                 "total of websocket connection",
             ),
             &["namespace", "instance", "route", "consumer", "tier"],
