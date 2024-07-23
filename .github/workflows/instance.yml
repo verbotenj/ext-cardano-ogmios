@@ -18,7 +18,7 @@ jobs:
         include:
           - context: docker/ogmios-5
             file: docker/ogmios-5/Dockerfile
-            endpoint: demeter-run/ext-cardano-ogmios-instance
+            endpoint: demeter-run/ext-cardano-ogmios-instance-5
             platforms: linux/amd64
           - context: docker/ogmios-6
             file: docker/ogmios-6/Dockerfile

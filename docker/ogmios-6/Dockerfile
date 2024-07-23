@@ -1,3 +1,3 @@
-FROM cardanosolutions/ogmios:v6.1.0
+FROM cardanosolutions/ogmios:v6.5.0
 
 COPY ./genesis /genesis
