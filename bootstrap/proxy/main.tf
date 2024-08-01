@@ -46,11 +46,11 @@ variable "resources" {
   })
   default = {
     limits : {
-      cpu : "50m",
+      cpu : "2",
       memory : "250Mi"
     }
     requests : {
-      cpu : "50m",
+      cpu : "100m",
       memory : "250Mi"
     }
   }
