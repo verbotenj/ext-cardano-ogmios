@@ -37,6 +37,7 @@ pub struct OgmiosPortSpec {
     pub version: u8,
     // throughput should be 0, 1, 2
     pub throughput_tier: String,
+    pub auth_token: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema)]
@@ -58,7 +59,10 @@ impl Context {
 }
 
 async fn reconcile(crd: Arc<OgmiosPort>, ctx: Arc<Context>) -> Result<Action> {
-    let key = build_api_key(&crd).await?;
+    let key = match &crd.spec.auth_token {
+        Some(api_key) => api_key.clone(),
+        None => build_api_key(&crd).await?,
+    };
 
     let (hostname, hostname_key) = build_hostname(&crd.spec.network, &crd.spec.version, &key);
 

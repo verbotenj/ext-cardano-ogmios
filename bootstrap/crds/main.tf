@@ -60,6 +60,10 @@ resource "kubernetes_manifest" "customresourcedefinition_ogmiosports_demeter_run
               "properties" = {
                 "spec" = {
                   "properties" = {
+                    "authToken" = {
+                      "nullable" = true
+                      "type" = "string"
+                    }
                     "network" = {
                       "type" = "string"
                     }
