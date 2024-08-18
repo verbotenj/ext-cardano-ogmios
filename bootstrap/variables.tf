@@ -7,11 +7,20 @@ variable "dns_zone" {
   default = "demeter.run"
 }
 
+variable "cluster_issuer" {
+  type    = string
+  default = "letsencrypt"
+}
+
 variable "extension_name" {
   type    = string
   default = "ogmios-m1"
 }
 
+variable "cloud_provider" {
+  type    = string
+  default = "aws"
+}
 
 variable "networks" {
   type    = list(string)
@@ -37,9 +46,10 @@ variable "api_key_salt" {
 variable "dcu_per_frame" {
   type = map(string)
   default = {
-    "mainnet" = "10"
-    "preprod" = "5"
-    "preview" = "5"
+    "mainnet"        = "10"
+    "preprod"        = "5"
+    "preview"        = "5"
+    "vector-testnet" = "5"
   }
 }
 
@@ -127,7 +137,6 @@ variable "proxy_resources" {
     }
   }
 }
-
 
 variable "instances" {
   type = map(object({

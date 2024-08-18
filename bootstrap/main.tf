@@ -32,6 +32,9 @@ module "ogmios_v1_proxy" {
   proxy_image_tag = var.proxy_blue_image_tag
   extension_name  = var.extension_name
   networks        = var.networks
+  cloud_provider  = var.cloud_provider
+  dns_zone        = var.dns_zone
+  cluster_issuer  = var.cluster_issuer
   name            = "proxy"
 }
 
@@ -44,6 +47,9 @@ module "ogmios_v1_proxy_green" {
   extension_name  = var.extension_name
   networks        = ["mainnet", "preprod", "preview", "vector-testnet"]
   environment     = "green"
+  cloud_provider  = var.cloud_provider
+  dns_zone        = var.dns_zone
+  cluster_issuer  = var.cluster_issuer
   name            = "proxy-green"
 }
 

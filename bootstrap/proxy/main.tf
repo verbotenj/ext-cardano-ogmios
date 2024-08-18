@@ -80,3 +80,18 @@ variable "dns_zone" {
   type    = string
   default = "demeter.run"
 }
+
+variable "cluster_issuer" {
+  type    = string
+  default = "letsencrypt"
+}
+
+variable "cloud_provider" {
+  type    = string
+  default = "aws"
+}
+
+variable "healthcheck_port" {
+  type    = number
+  default = null
+}
